@@ -1,8 +1,9 @@
 from joblib import Parallel, delayed
 from simulate import *
+import os
 import timeit
 
-STATIONS_TO_TEST = 20
+STATIONS_TO_TEST = 50
 
 np.seterr(all='raise', under='ignore')
 stations_pop, INITIAL_N = get_pop_data()
@@ -15,10 +16,15 @@ def run_once(station_index=0):
     run_one_config(INITIAL_N, STATION_COUNT, hourly_F, hourly_Fdash, station_index, 100, 0)
 
 def iterate():
+    try:
+        del os.environ['MKL_NUM_THREADS']
+    except KeyError:
+        pass
     for i in range(STATIONS_TO_TEST):
         run_once(i)
 
 def parallel(backend, jobs):
+    os.environ['MKL_NUM_THREADS'] = "8"
     Parallel(n_jobs=jobs, backend=backend)(delayed(run_once)(i,) for i in range(STATIONS_TO_TEST))
 
 if __name__ == '__main__':
