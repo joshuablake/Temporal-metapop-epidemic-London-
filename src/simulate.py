@@ -83,7 +83,7 @@ def create_F_matrices(move_data, stations_pop):
         start = STATION_LOOKUP[row.Start]
         end = STATION_LOOKUP[row.End]
         hour = calc_hour(row.Day, row.Hour)
-        hourly_F[hour][start][end] = 20 * row.Journeys / STATION_POP[row.Start]
+        hourly_F[hour][start][end] = row.Journeys / STATION_POP[row.Start]
 
     for F in hourly_F:
         check_F(F)
