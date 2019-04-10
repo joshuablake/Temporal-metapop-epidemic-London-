@@ -125,7 +125,7 @@ def run_simulation(state, hourly_F, hourly_Fdash, start_time=0, timesteps=None):
         state = update_state(F, Fdash, *state)
         t += 1
         Itotal = sum(state[1])
-    return state
+    return output
 
 def run_one_config(N, STATION_COUNT, hourly_F, hourly_Fdash, station_index, I_count, t):
     I = np.zeros(STATION_COUNT)
