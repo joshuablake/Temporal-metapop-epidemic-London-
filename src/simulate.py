@@ -9,6 +9,7 @@ from os import path
 
 DATA_DIR = path.join('..', 'data')
 NP_TYPE = np.double
+OUTPUT_HEADER = False
 
 # Disease parameters
 BETA = NP_TYPE(0.5 / 24)
@@ -63,9 +64,6 @@ def calc_hour(day, hour):
     return day * 24 + hour
 
 def create_F_matrices(move_data, stations_pop):
-    def check_F(F):
-        assert F.shape == (STATION_COUNT, STATION_COUNT)
-        assert (F.sum(axis=1) < 1).all()
     STATION_POP = {
         row['Station']: row['Station population'] for _, row in stations_pop.iterrows()
     }
@@ -83,10 +81,8 @@ def create_F_matrices(move_data, stations_pop):
         start = STATION_LOOKUP[row.Start]
         end = STATION_LOOKUP[row.End]
         hour = calc_hour(row.Day, row.Hour)
-        hourly_F[hour][start][end] = row.Journeys / STATION_POP[row.Start]
-
-    for F in hourly_F:
-        check_F(F)
+        if start != end:
+            hourly_F[hour][start][end] = 20 * row.Journeys
 
     return hourly_F
 
@@ -101,7 +97,7 @@ def update_state(F, Fdash, S, I, R, N):
     Nnew = Snew + Inew + Rnew
     return (Snew, Inew, Rnew, Nnew)
 
-def run_simulation(state, hourly_F, hourly_Fdash, start_time=0, timesteps=None):
+def run_simulation(state, hourly_F, start_time=0, timesteps=None):
     t = start_time
     end_time = timesteps and t + timesteps
     output = ([], [], [])
@@ -110,53 +106,63 @@ def run_simulation(state, hourly_F, hourly_Fdash, start_time=0, timesteps=None):
         for out_row, state_row in zip(output, state):
             out_row.append(state_row.sum())
 
-    def get_matrices(t):
+    def get_matrices_and_normalise(t, N):
+        def reduce_all_rows_to_one(F):
+            mask = (F.sum(axis=1) > 1)
+            if mask.any():
+                F[mask] = F[mask,] / (F[mask].sum(axis=1).reshape(F[mask].shape[0], 1) + 1e-10)
+                debug_print(PROGRESS, 'Adjusting too high F')
+        def check_F(F):
+            assert (F.sum(axis=1) <= 1).all()
         F = hourly_F[t % len(hourly_F)]
-        Fdash = hourly_Fdash[t % len(hourly_F)]
+        normalisation = state[3].reshape((state[3].shape[0], 1))
+        F = F / normalisation
+        reduce_all_rows_to_one(F)
+        check_F(F)
+        Fdash = F.sum(axis=1)
         return F, Fdash
 
-    Itotal = sum(state[1])
+    Itotal = state[1].sum()
     while Itotal > 0.5 and (end_time is None or t < end_time):
         if t % 1000 == 0:
             debug_print(DETAIL, '{}: {} infected', (t, Itotal))
         update_output(state)
         debug_print(DEBUG, state)
-        F, Fdash = get_matrices(t)
+        F, Fdash = get_matrices_and_normalise(t, state[3])
         state = update_state(F, Fdash, *state)
         t += 1
-        Itotal = sum(state[1])
+        Itotal = state[1].sum()
     return output
 
-def run_one_config(N, STATION_COUNT, hourly_F, hourly_Fdash, station_index, I_count, t):
+def run_one_config(N, STATION_COUNT, hourly_F, station_index, I_count, t):
     I = np.zeros(STATION_COUNT)
     I[station_index] = I_count
     S = N - I
     R = np.zeros(STATION_COUNT)
     state = (S, I, R, N)
-    return run_simulation(state, hourly_F, hourly_Fdash, start_time=t)
+    return run_simulation(state, hourly_F, start_time=t)
 
 def run_all_stations_times():
-    np.seterr(all='raise', under='ignore')
+    np.seterr(all='raise', under='ignore', divide='ignore')
     HEADER = ('Init_station', 'Init_time', 'Init_count', 'Count_type')
-    HEADER_PRINT = 'Starting at: station {}, time {}, count {}'
     stations_pop, INITIAL_N = get_pop_data()
     move_data = get_movement_data()
     hourly_F = create_F_matrices(move_data, stations_pop)
-    hourly_Fdash = [F.sum(axis=1) for F in hourly_F]
     STATION_COUNT = len(stations_pop)
 
     with open('results.csv', 'w', newline='') as outfile:
         writer = csv.writer(outfile)
-        writer.writerow(HEADER)
+        if OUTPUT_HEADER:
+            writer.writerow(HEADER)
         for station_index in range(STATION_COUNT):
             debug_print(PROGRESS, 'Station {} of {}', station_index, STATION_COUNT)
             for I_count in INITIAL_INFECTEDS:
                 if INITIAL_N[station_index] < I_count:
-                    print('Too small population to start with {} infections'
+                    debug_print(PROGRESS, 'Too small population to start with {} infections'
                             .format(I_count))
                     break
                 for t in START_TIMES:
-                    result = run_one_config(INITIAL_N, STATION_COUNT, hourly_F, hourly_Fdash, station_index, I_count, t)
+                    result = run_one_config(INITIAL_N, STATION_COUNT, hourly_F, station_index, I_count, t)
                     for i, name in enumerate(('S', 'I', 'R')):
                         outrow = [station_index, t, I_count, name]
                         outrow.extend(result[i])
