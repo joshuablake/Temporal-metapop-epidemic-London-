@@ -3,7 +3,7 @@ from simulate import *
 import os
 import timeit
 
-STATIONS_TO_TEST = 50
+STATIONS_TO_TEST = 10
 
 np.seterr(all='raise', under='ignore')
 stations_pop, INITIAL_N = get_pop_data()
@@ -24,7 +24,7 @@ def iterate():
         run_once(i)
 
 def parallel(backend, jobs):
-    os.environ['MKL_NUM_THREADS'] = "8"
+    os.environ['MKL_NUM_THREADS'] = "1"
     Parallel(n_jobs=jobs, backend=backend)(delayed(run_once)(i,) for i in range(STATIONS_TO_TEST))
 
 if __name__ == '__main__':
