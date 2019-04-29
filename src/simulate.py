@@ -92,11 +92,22 @@ def create_F_matrices(move_data, stations_pop):
 
     return hourly_F
 
+def np_geq(a, b):
+    """ If a >= b using float comparison for ="""
+    lt = a > b
+    eq = np.isclose(a, b)
+    return np.logical_or(lt, eq)
 
-
+def check_state(INITAL_POPULATION, S, I, R, N):
+    assert np_geq(S, 0).all()
+    assert np_geq(I, 0).all()
+    assert np_geq(R, 0).all()
+    assert np.isclose(N.sum(), INITAL_POPULATION)
 
 def update_state(F, Fdash, S, I, R, N):
-    S_I_interaction = BETA * S * I * 1/N
+    S_I_interaction = np.zeros(S.shape)
+    mask = ~np.isclose(N, 0)
+    S_I_interaction[mask] = BETA * S[mask] * I[mask] * 1/N[mask]
     Snew = -S_I_interaction + F.T.dot(S) - Fdash * S + S
     Inew = S_I_interaction + F.T.dot(I) - Fdash * I + (1-GAMMA) * I
     Rnew = GAMMA * I + F.T.dot(R) - Fdash * R + R
@@ -108,6 +119,12 @@ def run_simulation(state, hourly_F, start_time=0, timesteps=None):
     end_time = timesteps and t + timesteps
     output = ([], [], [])
 
+    def np_leq(a, b):
+        """ If a <= b using float comparison for ="""
+        lt = a < b
+        eq = np.isclose(a, b)
+        return np.logical_or(lt, eq)
+
     def update_output(state):
         for out_row, state_row in zip(output, state):
             out_row.append(state_row.sum())
@@ -117,9 +134,25 @@ def run_simulation(state, hourly_F, start_time=0, timesteps=None):
             mask = (F.sum(axis=1) > 1)
             if mask.any():
                 F[mask] = F[mask,] / (F[mask].sum(axis=1).reshape(F[mask].shape[0], 1) + 1e-10)
-                debug_print(PROGRESS, 'Adjusting too high F')
+                debug_print(DETAIL, 'Adjusting too high F')
         def check_F(F):
-            assert (F.sum(axis=1) <= 1).all()
+            try:
+                in_range = np_leq(F.sum(axis=1), 1)
+                assert in_range.all()
+            except AssertionError:
+                if DEBUG:
+                    print(F[~in_range])
+                    print('Sum(s) are {}'.format(F.sum(axis=1)[~in_range]))
+                    import pdb;pdb.set_trace()
+                raise
+            try:
+                in_range = np_geq(F, 0)
+                assert in_range.all()
+            except AssertionError:
+                if DEBUG:
+                    print(F[~in_range])
+                    import pdb;pdb.set_trace()
+                raise
         F = hourly_F[t % len(hourly_F)]
         normalisation = state[3].reshape((state[3].shape[0], 1))
         F = F / normalisation
@@ -128,14 +161,19 @@ def run_simulation(state, hourly_F, start_time=0, timesteps=None):
         Fdash = F.sum(axis=1)
         return F, Fdash
 
+    INITIAL_POPULATION = state[3].sum()
     Itotal = state[1].sum()
     while Itotal > 0.5 and (end_time is None or t < end_time):
         if t % 1000 == 0:
             debug_print(DETAIL, '{}: {} infected', (t, Itotal))
         update_output(state)
-        debug_print(DEBUG, state)
         F, Fdash = get_matrices_and_normalise(t, state[3])
         state = update_state(F, Fdash, *state)
+        try:
+            check_state(INITIAL_POPULATION, *state)
+        except AssertionError:
+            if DEBUG: import pdb; pdb.set_trace()
+            raise
         t += 1
         Itotal = state[1].sum()
     return output
@@ -149,12 +187,9 @@ def run_one_config(N, STATION_COUNT, hourly_F, station_index, I_count, t):
     return run_simulation(state, hourly_F, start_time=t)
 
 def run_all_stations_times():
-    np.seterr(all='raise', under='ignore', divide='ignore')
+    np.seterr(all='raise', under='ignore')
     HEADER = ('Init_station', 'Init_time', 'Init_count', 'Count_type')
-    stations_pop, INITIAL_N = get_pop_data()
-    move_data = get_movement_data()
-    hourly_F = create_F_matrices(move_data, stations_pop)
-    STATION_COUNT = len(stations_pop)
+    STATION_COUNT, INITIAL_N, hourly_F = setup()
 
     with open('results.csv', 'w', newline='') as outfile:
         writer = csv.writer(outfile)
@@ -173,6 +208,13 @@ def run_all_stations_times():
                         outrow = [station_index, t, I_count, name]
                         outrow.extend(result[i])
                         writer.writerow(outrow)
+
+def setup():
+    stations_pop, INITIAL_N = get_pop_data()
+    move_data = get_movement_data()
+    hourly_F = create_F_matrices(move_data, stations_pop)
+    STATION_COUNT = len(stations_pop)
+    return STATION_COUNT, INITIAL_N, hourly_F
 
 if __name__ == '__main__':
     run_all_stations_times()
