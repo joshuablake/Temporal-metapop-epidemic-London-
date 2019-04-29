@@ -154,8 +154,12 @@ def run_simulation(state, hourly_F, start_time=0, timesteps=None):
                     import pdb;pdb.set_trace()
                 raise
         F = hourly_F[t % len(hourly_F)]
-        normalisation = state[3].reshape((state[3].shape[0], 1))
-        F = F / normalisation
+        empty_stations = np.isclose(N, 0)
+        normalisation = N.reshape((N.shape[0], 1))
+        # prev_err = np.seterr(all='ignore')
+        F[~empty_stations] = F[~empty_stations] / normalisation[~empty_stations]
+        # np.seterr(**prev_err)
+        F[empty_stations] = 0
         reduce_all_rows_to_one(F)
         check_F(F)
         Fdash = F.sum(axis=1)
