@@ -213,11 +213,16 @@ def run_all_stations_times():
                             .format(I_count))
                     break
                 for t in START_TIMES:
-                    result = run_one_config(INITIAL_N, STATION_COUNT, hourly_F, station_index, I_count, t)
-                    for i, name in enumerate(('S', 'I', 'R')):
-                        outrow = [station_index, t, I_count, name]
-                        outrow.extend(result[i])
-                        writer.writerow(outrow)
+                    try:
+                        result = run_one_config(INITIAL_N, STATION_COUNT, hourly_F, station_index, I_count, t)
+                    except Exception as e:
+                        print('Error running with start state: station {}, t {}, I {}'.format(station_index, t, I_count))
+                        traceback.print_exc()
+                    else:
+                        for i, name in enumerate(('S', 'I', 'R')):
+                            outrow = [station_index, t, I_count, name]
+                            outrow.extend(result[i])
+                            writer.writerow(outrow)
 
 def setup():
     stations_pop, INITIAL_N = get_pop_data()
