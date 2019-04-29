@@ -133,8 +133,8 @@ def run_simulation(state, hourly_F, start_time=0, timesteps=None):
         def reduce_all_rows_to_one(F):
             mask = (F.sum(axis=1) > 1)
             if mask.any():
-                F[mask] = F[mask,] / (F[mask].sum(axis=1).reshape(F[mask].shape[0], 1) + 1e-10)
-                debug_print(DETAIL, 'Adjusting too high F')
+                F[mask] = F[mask,] / F[mask].sum(axis=1).reshape(F[mask].shape[0], 1)
+                debug_print(DETAIL, 'Adjusting too high F at {}', (i for i, val in enumerate(mask) if val))
         def check_F(F):
             try:
                 in_range = np_leq(F.sum(axis=1), 1)
@@ -169,7 +169,7 @@ def run_simulation(state, hourly_F, start_time=0, timesteps=None):
     Itotal = state[1].sum()
     while Itotal > 0.5 and (end_time is None or t < end_time):
         if t % 1000 == 0:
-            debug_print(DETAIL, '{}: {} infected', (t, Itotal))
+            debug_print(DETAIL, '{}: {} infected', t, Itotal)
         update_output(state)
         F, Fdash = get_matrices_and_normalise(t, state[3])
         state = update_state(F, Fdash, *state)
