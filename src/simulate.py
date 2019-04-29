@@ -172,12 +172,13 @@ def run_simulation(state, hourly_F, start_time=0, timesteps=None):
             debug_print(DETAIL, '{}: {} infected', t, Itotal)
         update_output(state)
         F, Fdash = get_matrices_and_normalise(t, state[3])
-        state = update_state(F, Fdash, *state)
+        new_state = update_state(F, Fdash, *state)
         try:
-            check_state(INITIAL_POPULATION, *state)
+            check_state(INITIAL_POPULATION, *new_state)
         except AssertionError:
             if DEBUG: import pdb; pdb.set_trace()
             raise
+        state = new_state
         t += 1
         Itotal = state[1].sum()
     return output
