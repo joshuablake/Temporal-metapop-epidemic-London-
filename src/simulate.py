@@ -105,13 +105,18 @@ def check_state(INITAL_POPULATION, S, I, R, N):
     assert np.isclose(N.sum(), INITAL_POPULATION)
 
 def update_state(F, Fdash, S, I, R, N):
+    # Progress disease
     S_I_interaction = np.zeros(S.shape)
     mask = ~np.isclose(N, 0)
-    S_I_interaction[mask] = BETA * S[mask] * I[mask] * 1/N[mask]
-    Snew = -S_I_interaction + F.T.dot(S) - Fdash * S + S
-    Inew = S_I_interaction + F.T.dot(I) - Fdash * I + (1-GAMMA) * I
-    Rnew = GAMMA * I + F.T.dot(R) - Fdash * R + R
+    S_I_interaction[mask] = BETA * S[mask] * I[mask] / N[mask]
+    Snew = -S_I_interaction + S
+    Inew = S_I_interaction + (1-GAMMA) * I
+    Rnew = GAMMA * I + R
     Nnew = Snew + Inew + Rnew
+    # Add travel
+    Snew += F.T.dot(Snew) - Fdash * Snew
+    Inew += F.T.dot(Inew) - Fdash * Inew
+    Rnew += F.T.dot(Rnew) - Fdash * Rnew
     return (Snew, Inew, Rnew, Nnew)
 
 def run_simulation(state, hourly_F, start_time=0, timesteps=None):
