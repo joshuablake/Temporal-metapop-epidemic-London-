@@ -197,7 +197,7 @@ def run_one_config(N, STATION_COUNT, hourly_F, station_index, I_count, t):
     return run_simulation(state, hourly_F, start_time=t)
 
 def run_all_stations_times():
-    np.seterr(all='raise', under='ignore')
+    np.seterr(all='raise', under='warn')
     HEADER = ('Init_station', 'Init_time', 'Init_count', 'Count_type')
     STATION_COUNT, INITIAL_N, hourly_F = setup()
 
