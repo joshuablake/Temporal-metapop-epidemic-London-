@@ -3,7 +3,6 @@
 import csv
 import pandas as pd
 import numpy as np
-import random
 import traceback
 from os import path
 
@@ -98,6 +97,12 @@ def np_geq(a, b):
     eq = np.isclose(a, b)
     return np.logical_or(lt, eq)
 
+def np_leq(a, b):
+    """ If a <= b using float comparison for ="""
+    lt = a < b
+    eq = np.isclose(a, b)
+    return np.logical_or(lt, eq)
+
 def check_state(INITAL_POPULATION, S, I, R, N):
     assert np_geq(S, 0).all()
     assert np_geq(I, 0).all()
@@ -106,77 +111,69 @@ def check_state(INITAL_POPULATION, S, I, R, N):
 
 def update_state(F, Fdash, S, I, R, N):
     # Progress disease
-    S_I_interaction = np.zeros(S.shape)
+    S_I_interaction = np.zeros_like(S)
     mask = ~np.isclose(N, 0)
     S_I_interaction[mask] = BETA * S[mask] * I[mask] / N[mask]
     Snew = -S_I_interaction + S
     Inew = S_I_interaction + (1-GAMMA) * I
     Rnew = GAMMA * I + R
-    Nnew = Snew + Inew + Rnew
     # Add travel
     Snew += F.T.dot(Snew) - Fdash * Snew
     Inew += F.T.dot(Inew) - Fdash * Inew
     Rnew += F.T.dot(Rnew) - Fdash * Rnew
+    Nnew = Snew + Inew + Rnew
     return (Snew, Inew, Rnew, Nnew)
+
+def get_matrices_and_normalise(t, N, hourly_F):
+    def reduce_all_rows_to_one(F):
+        mask = (F.sum(axis=1) > 1)
+        if mask.any():
+            F[mask] = F[mask,] / F[mask].sum(axis=1).reshape(F[mask].shape[0], 1)
+            debug_print(DETAIL, 'Adjusting too high F at {}', (i for i, val in enumerate(mask) if val))
+    def check_F(F):
+        try:
+            in_range = np_leq(F.sum(axis=1), 1)
+            assert in_range.all()
+        except AssertionError:
+            if DEBUG:
+                print(F[~in_range])
+                print('Sum(s) are {}'.format(F.sum(axis=1)[~in_range]))
+                import pdb;pdb.set_trace()
+            raise
+        try:
+            in_range = np_geq(F, 0)
+            assert in_range.all()
+        except AssertionError:
+            if DEBUG:
+                print(F[~in_range])
+                import pdb;pdb.set_trace()
+            raise
+    F = hourly_F[t % len(hourly_F)]
+    empty_stations = np.isclose(N, 0)
+    normalisation = N.reshape((N.shape[0], 1))
+    F[~empty_stations] = F[~empty_stations] / normalisation[~empty_stations]
+    F[empty_stations] = 0
+    reduce_all_rows_to_one(F)
+    check_F(F)
+    Fdash = F.sum(axis=1)
+    return F, Fdash
 
 def run_simulation(state, hourly_F, start_time=0, timesteps=None):
     t = start_time
     end_time = timesteps and t + timesteps
     output = ([], [], [])
 
-    def np_leq(a, b):
-        """ If a <= b using float comparison for ="""
-        lt = a < b
-        eq = np.isclose(a, b)
-        return np.logical_or(lt, eq)
-
     def update_output(state):
         for out_row, state_row in zip(output, state):
             out_row.append(state_row.sum())
-
-    def get_matrices_and_normalise(t, N):
-        def reduce_all_rows_to_one(F):
-            mask = (F.sum(axis=1) > 1)
-            if mask.any():
-                F[mask] = F[mask,] / F[mask].sum(axis=1).reshape(F[mask].shape[0], 1)
-                debug_print(DETAIL, 'Adjusting too high F at {}', (i for i, val in enumerate(mask) if val))
-        def check_F(F):
-            try:
-                in_range = np_leq(F.sum(axis=1), 1)
-                assert in_range.all()
-            except AssertionError:
-                if DEBUG:
-                    print(F[~in_range])
-                    print('Sum(s) are {}'.format(F.sum(axis=1)[~in_range]))
-                    import pdb;pdb.set_trace()
-                raise
-            try:
-                in_range = np_geq(F, 0)
-                assert in_range.all()
-            except AssertionError:
-                if DEBUG:
-                    print(F[~in_range])
-                    import pdb;pdb.set_trace()
-                raise
-        F = hourly_F[t % len(hourly_F)]
-        empty_stations = np.isclose(N, 0)
-        normalisation = N.reshape((N.shape[0], 1))
-        # prev_err = np.seterr(all='ignore')
-        F[~empty_stations] = F[~empty_stations] / normalisation[~empty_stations]
-        # np.seterr(**prev_err)
-        F[empty_stations] = 0
-        reduce_all_rows_to_one(F)
-        check_F(F)
-        Fdash = F.sum(axis=1)
-        return F, Fdash
-
+    
     INITIAL_POPULATION = state[3].sum()
     Itotal = state[1].sum()
     while Itotal > 0.5 and (end_time is None or t < end_time):
         if t % 1000 == 0:
             debug_print(DETAIL, '{}: {} infected', t, Itotal)
         update_output(state)
-        F, Fdash = get_matrices_and_normalise(t, state[3])
+        F, Fdash = get_matrices_and_normalise(t, state[3], hourly_F)
         new_state = update_state(F, Fdash, *state)
         try:
             check_state(INITIAL_POPULATION, *new_state)
@@ -188,11 +185,11 @@ def run_simulation(state, hourly_F, start_time=0, timesteps=None):
         Itotal = state[1].sum()
     return output
 
-def run_one_config(N, STATION_COUNT, hourly_F, station_index, I_count, t):
-    I = np.zeros(STATION_COUNT)
+def run_one_config(N, hourly_F, station_index, I_count, t):
+    R = np.zeros_like(N)
+    I = np.zeros_like(N)
     I[station_index] = I_count
     S = N - I
-    R = np.zeros(STATION_COUNT)
     state = (S, I, R, N)
     return run_simulation(state, hourly_F, start_time=t)
 
@@ -214,10 +211,12 @@ def run_all_stations_times():
                     break
                 for t in START_TIMES:
                     try:
-                        result = run_one_config(INITIAL_N, STATION_COUNT, hourly_F, station_index, I_count, t)
-                    except Exception as e:
+                        result = run_one_config(INITIAL_N, hourly_F, station_index, I_count, t)
+                    except Exception:
+                        print('---------------------------------------------------------')
                         print('Error running with start state: station {}, t {}, I {}'.format(station_index, t, I_count))
                         traceback.print_exc()
+                        print('---------------------------------------------------------')
                     else:
                         for i, name in enumerate(('S', 'I', 'R')):
                             outrow = [station_index, t, I_count, name]
