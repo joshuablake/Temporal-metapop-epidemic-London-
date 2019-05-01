@@ -174,6 +174,8 @@ def run_simulation(state, hourly_F, start_time=0, timesteps=None):
             debug_print(DETAIL, '{}: {} infected', t, Itotal)
         update_output(state)
         F, Fdash = get_matrices_and_normalise(t, state[3], hourly_F)
+        if t / 24 < 6 and t % 24 == 17:
+            debug_print(DEBUG, '{} infecteds move', (Fdash * state[1]).sum())
         new_state = update_state(F, Fdash, *state)
         try:
             check_state(INITIAL_POPULATION, *new_state)
