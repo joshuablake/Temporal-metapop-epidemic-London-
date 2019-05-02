@@ -78,10 +78,8 @@ def create_F_matrices(move_data, stations_pop):
     }
     max_day = move_data['Day'].max()
     max_day_max_hour = move_data[move_data['Day'] == max_day]['Hour'].max()
-    hourly_F = [
-        np.zeros((STATION_COUNT, STATION_COUNT))
-        for _ in range(calc_hour(max_day, max_day_max_hour) + 1)
-    ]
+    matrix_count = calc_hour(max_day, max_day_max_hour) + 1
+    hourly_F = np.zeros((matrix_count, STATION_COUNT, STATION_COUNT))
     for row in move_data.itertuples():
         start = STATION_LOOKUP[row.Start]
         end = STATION_LOOKUP[row.End]
@@ -109,14 +107,16 @@ def check_state(INITAL_POPULATION, S, I, R, N):
     assert np_geq(R, 0).all()
     assert np.isclose(N.sum(), INITAL_POPULATION)
 
-def update_state(F, Fdash, S, I, R, N):
+def update_state(F, Fdash, tick_length, S, I, R, N):
+    effective_beta = tick_length * BETA
+    effective_gamma = tick_length * GAMMA
     # Progress disease
     S_I_interaction = np.zeros_like(S)
     mask = ~np.isclose(N, 0)
-    S_I_interaction[mask] = BETA * S[mask] * I[mask] / N[mask]
+    S_I_interaction[mask] = effective_beta * S[mask] * I[mask] / N[mask]
     Snew = -S_I_interaction + S
-    Inew = S_I_interaction + (1-GAMMA) * I
-    Rnew = GAMMA * I + R
+    Inew = S_I_interaction + (1-effective_gamma) * I
+    Rnew = effective_gamma * I + R
     # Add travel
     Snew += F.T.dot(Snew) - Fdash * Snew
     Inew += F.T.dot(Inew) - Fdash * Inew
@@ -124,12 +124,12 @@ def update_state(F, Fdash, S, I, R, N):
     Nnew = Snew + Inew + Rnew
     return (Snew, Inew, Rnew, Nnew)
 
-def get_matrices_and_normalise(t, N, hourly_F):
+def get_matrices_and_normalise(t, N, hourly_F, tick_length):
     def reduce_all_rows_to_one(F):
         mask = (F.sum(axis=1) > 1)
         if mask.any():
             F[mask] = F[mask,] / F[mask].sum(axis=1).reshape(F[mask].shape[0], 1)
-            debug_print(DETAIL, 'Adjusting too high F at {}', (i for i, val in enumerate(mask) if val))
+            debug_print(DETAIL, 'Adjusting too high F at {}', ', '.join(str(i) for i, val in enumerate(mask) if val))
     def check_F(F):
         try:
             in_range = np_leq(F.sum(axis=1), 1)
@@ -148,7 +148,9 @@ def get_matrices_and_normalise(t, N, hourly_F):
                 print(F[~in_range])
                 import pdb;pdb.set_trace()
             raise
-    F = hourly_F[t % len(hourly_F)]
+    first_t = t % len(hourly_F)
+    last_t = (first_t + tick_length) % len(hourly_F)
+    F = hourly_F[first_t:last_t].sum(axis=0)
     empty_stations = np.isclose(N, 0)
     normalisation = N.reshape((N.shape[0], 1))
     F[~empty_stations] = F[~empty_stations] / normalisation[~empty_stations]
@@ -158,9 +160,9 @@ def get_matrices_and_normalise(t, N, hourly_F):
     Fdash = F.sum(axis=1)
     return F, Fdash
 
-def run_simulation(state, hourly_F, start_time=0, timesteps=None):
+def run_simulation(state, hourly_F, tick_length, start_time=0, timesteps=None):
     t = start_time
-    end_time = timesteps and t + timesteps
+    end_time = timesteps and t + (timesteps * tick_length)
     output = ([], [], [])
 
     def update_output(state):
@@ -173,27 +175,28 @@ def run_simulation(state, hourly_F, start_time=0, timesteps=None):
         if t % 1000 == 0:
             debug_print(DETAIL, '{}: {} infected', t, Itotal)
         update_output(state)
-        F, Fdash = get_matrices_and_normalise(t, state[3], hourly_F)
+        F, Fdash = get_matrices_and_normalise(t, state[3], hourly_F, tick_length)
         if t / 24 < 6 and t % 24 == 17:
             debug_print(DEBUG, '{} infecteds move', (Fdash * state[1]).sum())
-        new_state = update_state(F, Fdash, *state)
+        new_state = update_state(F, Fdash, tick_length, *state)
         try:
             check_state(INITIAL_POPULATION, *new_state)
         except AssertionError:
             if DEBUG: import pdb; pdb.set_trace()
             raise
         state = new_state
-        t += 1
+        t += tick_length
         Itotal = state[1].sum()
     return output
 
-def run_one_config(N, hourly_F, station_index, I_count, t):
+def run_one_config(N, hourly_F, station_index, I_count, t, tick_length=1):
+    debug_print(DEBUG, 'Shape of N is: {}', N.shape)
     R = np.zeros_like(N)
     I = np.zeros_like(N)
     I[station_index] = I_count
     S = N - I
     state = (S, I, R, N)
-    return run_simulation(state, hourly_F, start_time=t)
+    return run_simulation(state, hourly_F, start_time=t, tick_length=tick_length)
 
 def run_all_stations_times():
     np.seterr(all='raise', under='warn')
@@ -215,15 +218,48 @@ def run_all_stations_times():
                     try:
                         result = run_one_config(INITIAL_N, hourly_F, station_index, I_count, t)
                     except Exception:
-                        print('---------------------------------------------------------')
-                        print('Error running with start state: station {}, t {}, I {}'.format(station_index, t, I_count))
-                        traceback.print_exc()
-                        print('---------------------------------------------------------')
+                        if VERBOSITY == DEBUG:
+                            raise
+                        else:
+                            print('---------------------------------------------------------')
+                            print('Error running with start state: station {}, t {}, I {}'.format(station_index, t, I_count))
+                            traceback.print_exc()
+                            print('---------------------------------------------------------')
                     else:
                         for i, name in enumerate(('S', 'I', 'R')):
                             outrow = [station_index, t, I_count, name]
                             outrow.extend(result[i])
                             writer.writerow(outrow)
+
+def run_all_tick_lengths():
+    np.seterr(all='raise', under='warn')
+    _, INITIAL_N, hourly_F = setup()
+    MAX_LENGTH = 25
+    # Randomly chosen scenario
+    STATION_INDEX = 355
+    INITIAL_T = 108
+    INITIAL_I = 1
+
+    with open('results.csv', 'w', newline='') as outfile:
+        writer = csv.writer(outfile)
+        for tick_length in range(1, MAX_LENGTH):
+            debug_print(PROGRESS, 'Tick length {} of {}', tick_length, MAX_LENGTH)
+            try:
+                result = run_one_config(INITIAL_N, hourly_F, STATION_INDEX, INITIAL_I, INITIAL_T,
+                                        tick_length=tick_length)
+            except Exception:
+                if VERBOSITY == DEBUG:
+                    raise
+                else:
+                    print('---------------------------------------------------------')
+                    print('Error running with tick length {}'.format(tick_length))
+                    traceback.print_exc()
+                    print('---------------------------------------------------------')
+            else:
+                for i, name in enumerate(('S', 'I', 'R')):
+                    outrow = [tick_length, name]
+                    outrow.extend(result[i])
+                    writer.writerow(outrow)
 
 def setup():
     stations_pop, INITIAL_N = get_pop_data()
@@ -233,4 +269,4 @@ def setup():
     return STATION_COUNT, INITIAL_N, hourly_F
 
 if __name__ == '__main__':
-    run_all_stations_times()
+    run_all_tick_lengths()
