@@ -13,6 +13,7 @@ OUTPUT_HEADER = False
 # Disease parameters
 BETA = NP_TYPE(0.5 / 24)
 GAMMA = NP_TYPE((1/3) / 24)
+
 START_TIMES = (
     3,              # Monday morning
     24 * 2 + 12,    # Midweek
@@ -26,7 +27,7 @@ NONE = 0
 PROGRESS = 1
 DETAIL = 2
 DEBUG = 3
-VERBOSITY = PROGRESS
+VERBOSITY = DEBUG
 
 DAY_LOOKUP = {
     'Mon': 0,
@@ -39,10 +40,18 @@ DAY_LOOKUP = {
 }
 
 def debug_print(level, msg, *vars):
+    """Prints a message depending on current verbosity and message severity"""
     if level <= VERBOSITY:
         print(msg.format(*vars))
 
 def get_pop_data():
+    """Read csv population data
+
+    Returns:
+        Tuple (stations_pop, pop_values)
+        stations_pop: pandas dataframe with columns detailing the stations and their boroughs
+        pop_values: a numpy 1D array of population values for stations
+    """
     boroughs = pd.read_csv(path.join(DATA_DIR, 'borough_pop.csv'))
     stations = pd.read_csv(path.join(DATA_DIR, 'station_borough.csv'))
     borough_count = stations['Local authority'].value_counts().to_frame()
@@ -56,37 +65,57 @@ def get_pop_data():
     return stations_pop, pop_values
 
 def get_movement_data():
+    """Read csv files of TfL movement data
+
+    Returns:
+        pandas dataframe, each row a unique combination of start station, end
+        stations, day of the week (0-6), and hour of the day (0-23), along with
+        the corrosponding number of journeys
+    """
     move_data = pd.read_csv(path.join(DATA_DIR, 'journey_count.csv'))
     move_data.columns = ['Start', 'End', 'Day', 'Hour', 'Journeys']
     # Make days numeric
     move_data['Day'].replace(DAY_LOOKUP, inplace=True)
     # Normalise when hours roll over
-    move_data.loc[move_data['Hour'] > 23, 'Day'] += 1
+    move_data.loc[move_data['Hour'] > 23, 'Day'] = (move_data.loc[move_data['Hour'] > 23, 'Day'] + 1) % 7
     move_data.loc[move_data['Hour'] > 23, 'Hour'] -= 24
+    assert move_data['Day'].max() < 7
+    assert move_data['Hour'].max() < 24
     return move_data
 
 def calc_hour(day, hour):
+    """Convert day of week and hour of day into hour of week
+
+    Params:
+        day: int (0-6) representing day of week
+        hour: int (0-23) representing hour of day
+
+    Returns:
+        hour of week: int (0-167)
+    """
     return day * 24 + hour
 
 def create_F_matrices(move_data, stations_pop):
-    STATION_POP = {
-        row['Station']: row['Station population'] for _, row in stations_pop.iterrows()
-    }
-    STATION_COUNT = len(STATION_POP)
+    """Combine read in data to create F matrices needed for simulation"""
+    assert frozenset(move_data['Start']) <= frozenset(stations_pop['Station'])
+    assert frozenset(move_data['End']) <= frozenset(stations_pop['Station'])
+    # numeric value of each station, i.e. their alphabetical position
+    station_names = stations_pop['Station'].unique()
+    station_names.sort()
     STATION_LOOKUP = {
-        name: i for i, name in enumerate(move_data['Start'].unique())
+        name: i for i, name in enumerate(station_names)
     }
-    max_day = move_data['Day'].max()
-    max_day_max_hour = move_data[move_data['Day'] == max_day]['Hour'].max()
-    matrix_count = calc_hour(max_day, max_day_max_hour) + 1
+    STATION_COUNT = len(STATION_LOOKUP)
+    matrix_count = calc_hour(6, 23) + 1
+    # hourly_F[h][i][j] is the number of people travelling from i to j in hour h
+    # h is an hour of the week
     hourly_F = np.zeros((matrix_count, STATION_COUNT, STATION_COUNT))
     for row in move_data.itertuples():
         start = STATION_LOOKUP[row.Start]
         end = STATION_LOOKUP[row.End]
-        hour = calc_hour(row.Day, row.Hour)
         if start != end:
+            hour = calc_hour(row.Day, row.Hour)
             hourly_F[hour][start][end] = 20 * row.Journeys
-
     return hourly_F
 
 def np_geq(a, b):
@@ -101,64 +130,101 @@ def np_leq(a, b):
     eq = np.isclose(a, b)
     return np.logical_or(lt, eq)
 
-def check_state(INITAL_POPULATION, S, I, R, N):
+def check_state(expected_population, S, I, R, N):
+    """Some basic checks on the system state.
+
+    Everything should be non-negative, population is conserved, and N is the
+    total population in each case.
+    """
     assert np_geq(S, 0).all()
     assert np_geq(I, 0).all()
     assert np_geq(R, 0).all()
-    assert np.isclose(N.sum(), INITAL_POPULATION)
+    assert np.isclose(N.sum(), expected_population)
+    assert np.isclose(S + I + R, N).all()
 
-def update_state(F, Fdash, tick_length, S, I, R, N):
+def check_F(F):
+    """Some basic checks on a F matrix.
+
+    Values should be in non-negative and row sums should be <= 1
+    If VERBRO then 
+    """
+    # Row sums
+    in_range = np_leq(F.sum(axis=1), 1)
+    assert in_range.all()
+    # Non-negative values
+    in_range = np_geq(F, 0)
+    assert in_range.all()
+
+def update_state(F, tick_length, S, I, R, N):
+    """Process one tick.
+
+    Params:
+        F: matrix to use for travel
+        tick_length: how long this tick should be
+        (S, I, R, N): starting state
+
+    Returns:
+        (S, I, R, N): state after this tick
+    """
+    start_population = N.sum()
+    S, I, R = step_SIR(tick_length, S, N, I, R)
+    S, I, R, N = step_travel(F, S, I, R, N)
+    check_state(start_population, S, I, R, N)
+    return (S, I, R, N)
+
+def step_travel(F, S, I, R, N):
+    """One timestep of travel"""
+    Fdash = F.sum(axis=1)
+    S = S + F.T.dot(S) - Fdash * S
+    I = I + F.T.dot(I) - Fdash * I
+    R = R + F.T.dot(R) - Fdash * R
+    Nnew = S + I + R
+    assert np.isclose(Nnew, N + F.T.dot(N) - Fdash * N).all()
+    return S, I, R, Nnew
+
+def step_SIR(tick_length, S, N, I, R):
+    """Move forward one SIR time step of tick_length"""
     effective_beta = tick_length * BETA
     effective_gamma = tick_length * GAMMA
-    # Progress disease
     S_I_interaction = np.zeros_like(S)
+    # Empty compartments have no change, ignore them to avoid dividing by 0
     mask = ~np.isclose(N, 0)
     S_I_interaction[mask] = effective_beta * S[mask] * I[mask] / N[mask]
-    Snew = -S_I_interaction + S
-    Inew = S_I_interaction + (1-effective_gamma) * I
-    Rnew = effective_gamma * I + R
-    # Add travel
-    Snew += F.T.dot(Snew) - Fdash * Snew
-    Inew += F.T.dot(Inew) - Fdash * Inew
-    Rnew += F.T.dot(Rnew) - Fdash * Rnew
-    Nnew = Snew + Inew + Rnew
-    return (Snew, Inew, Rnew, Nnew)
+    S = S + -S_I_interaction
+    I = I + S_I_interaction - effective_gamma * I
+    R = R + effective_gamma * I
+    return S, I, R
 
-def get_matrices_and_normalise(t, N, hourly_F, tick_length):
+def get_normalised_F_matrix(t, N, hourly_F, tick_length):
+    """Get the F matrix for a tick, normalised for current population size.
+
+    Params:
+        t: start of this tick
+        N: current N vector (i.e. station populations)
+        hourly_F: array of F matrices, indexed by t
+        tick_length: how long this tick lasts
+
+    Returns:
+        F matrix. F[i][j] is proportion of population at i that moves to j
+        during this timestep
+    """
     def reduce_all_rows_to_one(F):
         mask = (F.sum(axis=1) > 1)
-        if mask.any():
-            F[mask] = F[mask,] / F[mask].sum(axis=1).reshape(F[mask].shape[0], 1)
-            debug_print(DETAIL, 'Adjusting too high F at {}', ', '.join(str(i) for i, val in enumerate(mask) if val))
-    def check_F(F):
-        try:
-            in_range = np_leq(F.sum(axis=1), 1)
-            assert in_range.all()
-        except AssertionError:
-            if DEBUG:
-                print(F[~in_range])
-                print('Sum(s) are {}'.format(F.sum(axis=1)[~in_range]))
-                import pdb;pdb.set_trace()
-            raise
-        try:
-            in_range = np_geq(F, 0)
-            assert in_range.all()
-        except AssertionError:
-            if DEBUG:
-                print(F[~in_range])
-                import pdb;pdb.set_trace()
-            raise
-    first_t = t % len(hourly_F)
-    last_t = (first_t + tick_length) % len(hourly_F)
-    F = hourly_F[first_t:last_t].sum(axis=0)
-    empty_stations = np.isclose(N, 0)
+        F[mask] = F[mask,] / F[mask].sum(axis=1).reshape(F[mask].shape[0], 1)
+        debug_print(DEBUG, 'Adjusting too high F at {}',
+                    ', '.join(str(i) for i, val in enumerate(mask) if val))
+    # Calculate start and end indices for hourly_F
+    start_idx = t % len(hourly_F)
+    end_idx = (start_idx + tick_length) % len(hourly_F)
+    F = hourly_F[start_idx:end_idx].sum(axis=0)
+    # Perform (number moving) / (number in station) to get proportions
+    empty_stations = np.isclose(N, 0)       # ignore 0s 
     normalisation = N.reshape((N.shape[0], 1))
     F[~empty_stations] = F[~empty_stations] / normalisation[~empty_stations]
     F[empty_stations] = 0
     reduce_all_rows_to_one(F)
     check_F(F)
-    Fdash = F.sum(axis=1)
-    return F, Fdash
+    return F
 
 def run_simulation(state, hourly_F, tick_length, start_time=0, timesteps=None):
     t = start_time
@@ -169,21 +235,15 @@ def run_simulation(state, hourly_F, tick_length, start_time=0, timesteps=None):
         for out_row, state_row in zip(output, state):
             out_row.append(state_row.sum())
     
-    INITIAL_POPULATION = state[3].sum()
     Itotal = state[1].sum()
     while Itotal > 0.5 and (end_time is None or t < end_time):
         if t % 1000 == 0:
             debug_print(DETAIL, '{}: {} infected', t, Itotal)
         update_output(state)
-        F, Fdash = get_matrices_and_normalise(t, state[3], hourly_F, tick_length)
+        F = get_normalised_F_matrix(t, state[3], hourly_F, tick_length)
         if t / 24 < 6 and t % 24 == 17:
-            debug_print(DEBUG, '{} infecteds move', (Fdash * state[1]).sum())
-        new_state = update_state(F, Fdash, tick_length, *state)
-        try:
-            check_state(INITIAL_POPULATION, *new_state)
-        except AssertionError:
-            if DEBUG: import pdb; pdb.set_trace()
-            raise
+            debug_print(DEBUG, '{} infecteds move', (F.dot(state[1]).sum()))
+        new_state = update_state(F, tick_length, *state)
         state = new_state
         t += tick_length
         Itotal = state[1].sum()
