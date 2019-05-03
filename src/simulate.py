@@ -181,26 +181,28 @@ def update_state(F, tick_length, S, I, R, N):
 
 def step_travel(F, S, I, R, N):
     """One timestep of travel"""
-    Fdash = F.sum(axis=1)
-    S = S + F.T.dot(S) - Fdash * S
-    I = I + F.T.dot(I) - Fdash * I
-    R = R + F.T.dot(R) - Fdash * R
+    diags = np.diag_indices_from(F)
+    F[diags] = 0
+    F[diags] = np.ones_like(F[diags]) - F.sum(axis=1)
+    S = F.T.dot(S)
+    I = F.T.dot(I)
+    R = F.T.dot(R)
     Nnew = S + I + R
-    assert np.isclose(Nnew, N + F.T.dot(N) - Fdash * N).all()
+    assert np.isclose(Nnew, F.T.dot(N)).all()
     return S, I, R, Nnew
 
 def step_SIR(tick_length, S, I, R, N):
     """Move forward one SIR time step of tick_length"""
     effective_beta = tick_length * BETA
     effective_gamma = tick_length * GAMMA
-    S_I_interaction = np.zeros_like(S)
     # Empty compartments have no change, ignore them to avoid dividing by 0
-    mask = ~np.isclose(N, 0)
-    S_I_interaction[mask] = effective_beta * S[mask] * I[mask] / N[mask]
-    S = S + -S_I_interaction
-    I = I + S_I_interaction - effective_gamma * I
-    R = R + effective_gamma * I
-    return S, I, R
+    idxs = ~np.isclose(N, 0)
+    S_I_interaction = np.zeros_like(S)
+    S_I_interaction[idxs] = effective_beta * S[idxs] * I[idxs] / N[idxs]
+    Snew = S + -S_I_interaction
+    Inew = I + S_I_interaction - effective_gamma * I
+    Rnew = R + effective_gamma * I
+    return Snew, Inew, Rnew
 
 def get_normalised_F_matrix(t, N, hourly_F, tick_length):
     """Get the F matrix for a tick, normalised for current population size.
