@@ -167,7 +167,8 @@ def update_state(F, tick_length, S, I, R, N):
         (S, I, R, N): state after this tick
     """
     start_population = N.sum()
-    S, I, R = step_SIR(tick_length, S, N, I, R)
+    S, I, R = step_SIR(tick_length, S, I, R, N)
+    check_state(start_population, S, I, R, N)
     S, I, R, N = step_travel(F, S, I, R, N)
     check_state(start_population, S, I, R, N)
     return (S, I, R, N)
@@ -182,7 +183,7 @@ def step_travel(F, S, I, R, N):
     assert np.isclose(Nnew, N + F.T.dot(N) - Fdash * N).all()
     return S, I, R, Nnew
 
-def step_SIR(tick_length, S, N, I, R):
+def step_SIR(tick_length, S, I, R, N):
     """Move forward one SIR time step of tick_length"""
     effective_beta = tick_length * BETA
     effective_gamma = tick_length * GAMMA
