@@ -167,7 +167,13 @@ def update_state(F, tick_length, S, I, R, N):
         (S, I, R, N): state after this tick
     """
     start_population = N.sum()
+    if VERBOSITY >= DEBUG:
+        # Helps when debugging AssertionError
+        start_state = (S.copy(), I.copy(), R.copy(), N.copy())
     S, I, R = step_SIR(tick_length, S, I, R, N)
+    if VERBOSITY >= DEBUG:
+        # Helps when debugging AssertionError
+        SIR_state = (S.copy(), I.copy(), R.copy(), N.copy())
     check_state(start_population, S, I, R, N)
     S, I, R, N = step_travel(F, S, I, R, N)
     check_state(start_population, S, I, R, N)
