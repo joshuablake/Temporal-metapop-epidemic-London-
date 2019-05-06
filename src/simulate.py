@@ -4,6 +4,7 @@ import csv
 import pandas as pd
 import numpy as np
 import traceback
+from scipy.integrate import solve_ivp
 from os import path
 
 DATA_DIR = path.join('..', 'data')
@@ -27,7 +28,7 @@ NONE = 0
 PROGRESS = 1
 DETAIL = 2
 DEBUG = 3
-VERBOSITY = DEBUG
+VERBOSITY = PROGRESS
 
 DAY_LOOKUP = {
     'Mon': 0,
@@ -140,20 +141,17 @@ def check_state(expected_population, S, I, R, N):
     assert np_geq(I, 0).all()
     assert np_geq(R, 0).all()
     assert np.isclose(N.sum(), expected_population)
-    assert np.isclose(S + I + R, N).all()
+    assert np.allclose(S + I + R, N)
 
-def check_F(F):
+def check_F(F, row_sum=1):
     """Some basic checks on a F matrix.
 
-    Values should be in non-negative and row sums should be <= 1
-    If VERBRO then 
+    Values should be in non-negative and row sums should be == row_sum
     """
     # Row sums
-    in_range = np_leq(F.sum(axis=1), 1)
-    assert in_range.all()
+    assert np.allclose(F.sum(axis=1), row_sum)
     # Non-negative values
-    in_range = np_geq(F, 0)
-    assert in_range.all()
+    assert np_geq(F, 0).all()
 
 def update_state(F, tick_length, S, I, R, N):
     """Process one tick.
@@ -181,14 +179,12 @@ def update_state(F, tick_length, S, I, R, N):
 
 def step_travel(F, S, I, R, N):
     """One timestep of travel"""
-    diags = np.diag_indices_from(F)
-    F[diags] = 0
-    F[diags] = np.ones_like(F[diags]) - F.sum(axis=1)
+    assert (F.sum(axis=1) == 1).all()
     S = F.T.dot(S)
     I = F.T.dot(I)
     R = F.T.dot(R)
     Nnew = S + I + R
-    assert np.isclose(Nnew, F.T.dot(N)).all()
+    assert np.allclose(Nnew, F.T.dot(N))
     return S, I, R, Nnew
 
 def step_SIR(tick_length, S, I, R, N):
@@ -204,7 +200,7 @@ def step_SIR(tick_length, S, I, R, N):
     Rnew = R + effective_gamma * I
     return Snew, Inew, Rnew
 
-def get_normalised_F_matrix(t, N, hourly_F, tick_length):
+def get_normalised_F_matrix(t, N, hourly_F, tick_length=1, row_sum=1):
     """Get the F matrix for a tick, normalised for current population size.
 
     Params:
@@ -212,16 +208,25 @@ def get_normalised_F_matrix(t, N, hourly_F, tick_length):
         N: current N vector (i.e. station populations)
         hourly_F: array of F matrices, indexed by t
         tick_length: how long this tick lasts
+        row_sum: adjust the diagonal such that rows sum to this value.
+                Common values are 0 or 1. 0 means that the values can be
+                considered the rate of change of people per hour: diagonal
+                is negative equal to rate of leaving. 1 means that values  can
+                be considered the proportion of people ending up in each
+                station, the diagonal is the proportion not moving.
 
     Returns:
         F matrix. F[i][j] is proportion of population at i that moves to j
         during this timestep
     """
-    def reduce_all_rows_to_one(F):
+    def set_row_sum(F):
+        diags = np.diag_indices_from(F)
+        F[diags] = 0
         mask = (F.sum(axis=1) > 1)
         F[mask] = F[mask,] / F[mask].sum(axis=1).reshape(F[mask].shape[0], 1)
         debug_print(DEBUG, 'Adjusting too high F at {}',
                     ', '.join(str(i) for i, val in enumerate(mask) if val))
+        F[diags] = np.full_like(F[diags], row_sum) - F.sum(axis=1)
     # Calculate start and end indices for hourly_F
     start_idx = t % len(hourly_F)
     end_idx = (start_idx + tick_length) % len(hourly_F)
@@ -231,8 +236,8 @@ def get_normalised_F_matrix(t, N, hourly_F, tick_length):
     normalisation = N.reshape((N.shape[0], 1))
     F[~empty_stations] = F[~empty_stations] / normalisation[~empty_stations]
     F[empty_stations] = 0
-    reduce_all_rows_to_one(F)
-    check_F(F)
+    set_row_sum(F)
+    check_F(F, row_sum)
     return F
 
 def run_simulation(state, hourly_F, tick_length, start_time=0, timesteps=None):
@@ -257,6 +262,36 @@ def run_simulation(state, hourly_F, tick_length, start_time=0, timesteps=None):
         t += tick_length
         Itotal = state[1].sum()
     return output
+
+def run_one_config_ode(N0, hourly_F, station_index, I_count, t, tick_length):
+    initial_population = N0.sum()
+    get_derivs = create_derivative_func(hourly_F, initial_population)
+    
+    R0 = np.zeros_like(N0)
+    I0 = np.zeros_like(N0)
+    I0[station_index] = I_count
+    S0 = N0 - I0 - R0
+    y0 = np.concatenate((S0, I0, R0, N0))
+    result = solve_ivp(get_derivs, (t, t+7000), y0)
+    # import pdb; pdb.set_trace()
+    return result
+
+def create_derivative_func(hourly_F, initial_population):
+    def get_derivs(t, y):
+        S, I, R, N = np.split(y, 4)
+        # check_state(initial_population, S, I, R, N)
+        F = get_normalised_F_matrix(int(t), N, hourly_F, row_sum=0)
+        idxs = ~np_leq(N, 0)
+        S_I_interaction = np.zeros_like(S)
+        S_I_interaction[idxs] = BETA * S[idxs] * I[idxs] / N[idxs]
+        dSdt = -S_I_interaction + F.T.dot(S)
+        dIdt = S_I_interaction - GAMMA * I + F.T.dot(I)
+        dRdt = GAMMA * I + F.T.dot(R)
+        dNdt = dSdt + dIdt + dRdt
+        assert np.allclose(F.T.dot(N), dNdt, atol=1e-10)
+        assert np.isclose(0, dNdt.sum())
+        return np.concatenate((dSdt, dIdt, dRdt, dNdt))
+    return get_derivs
 
 def run_one_config(N, hourly_F, station_index, I_count, t, tick_length=1):
     debug_print(DEBUG, 'Shape of N is: {}', N.shape)
