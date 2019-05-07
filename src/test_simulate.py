@@ -5,6 +5,7 @@ from hypothesis import strategies as st
 from hypothesis.extra import numpy as npst
 
 np.seterr(all='raise', under='ignore')
+simulate.VERBOSITY = simulate.NONE
 
 @st.composite
 def st_state(draw, min_stations=1, max_stations=1000):
@@ -90,9 +91,61 @@ def test_half_population_to_third_station(state):
 )
 def test_SIR_gives_valid_results(tick_length, state):
     hyp.assume(((tick_length * simulate.BETA * state[1]) <= state[3]).all())
-    # hyp.assume((tick_length * simulate.BETA < state[3] / state[1]).all())
+    hyp.assume(tick_length * simulate.GAMMA <= 1)
     initial_pop = state[-1].sum()
     initial_state = tuple(i.copy() for i in state)
     assume_check_func(simulate.check_state, initial_pop, *state)
     S, I, R = simulate.step_SIR(tick_length, *state)
     simulate.check_state(initial_pop, S, I, R, initial_state[-1])
+
+@st.composite
+def st_unnormalised_F(draw, station_count):
+    F = draw(npst.arrays(
+        dtype = np.dtype(int),
+        shape = (station_count,station_count),
+        elements = st.integers(0, np.iinfo(np.dtype(int)).max),
+        fill = st.just(0),
+    ))
+    np.fill_diagonal(F, 0)
+    return F
+
+@st.composite
+def st_ode_params(draw):
+    station_count = draw(st.integers(1, 50))
+    N0 = draw(npst.arrays(
+        dtype = simulate.NP_TYPE,
+        shape = (station_count,),
+        elements = st.integers(min_value=0, max_value=1e15),
+        fill = st.just(0)
+    ))
+    hourly_F = np.array(draw(st.lists(elements=st_unnormalised_F(station_count), min_size=1)))
+    station_index = draw(st.integers(0, station_count-1))
+    I_count = draw(st.integers(0, N0[station_index]))
+    t = draw(st.integers())
+    return N0, hourly_F, station_index, I_count, t, 1
+
+@st.composite
+def st_state_and_hourly_F(draw):
+    state = draw(st_state(max_stations=50))
+    station_count = state[0].shape[0]
+    hourly_F = np.array(draw(st.lists(elements=st_unnormalised_F(station_count), min_size=1)))
+    return state, hourly_F
+
+@hyp.given(st_state_and_hourly_F(), st.integers(0))
+def test_derivatives_are_sane(state_and_F, t):
+    state, hourly_F = state_and_F
+    initial_population = state[-1].sum()
+    assume_check_func(simulate.check_state, initial_population, *state)
+    y = np.concatenate(state)
+    deriv_func = simulate.create_derivative_func(hourly_F, initial_population)
+    deriv_func(t, y)
+
+@hyp.given(st_ode_params())
+@hyp.settings(deadline=None)
+def test_ode_valid(args):
+    population = args[0].sum()
+    results = simulate.run_one_config_ode(*args, return_raw=True)
+    assert results.success
+    for y in results.y.T:
+        state = np.split(np.array(y), 4)
+        simulate.check_state(population, *state)

@@ -28,7 +28,7 @@ NONE = 0
 PROGRESS = 1
 DETAIL = 2
 DEBUG = 3
-VERBOSITY = PROGRESS
+VERBOSITY = DETAIL
 
 DAY_LOOKUP = {
     'Mon': 0,
@@ -143,15 +143,16 @@ def check_state(expected_population, S, I, R, N):
     assert np.isclose(N.sum(), expected_population)
     assert np.allclose(S + I + R, N)
 
-def check_F(F, row_sum=1):
-    """Some basic checks on a F matrix.
+def check_F(F, row_sum=1, all_positive=True):
+    """Some row sums on a F matrix.
 
     Values should be in non-negative and row sums should be == row_sum
     """
     # Row sums
     assert np.allclose(F.sum(axis=1), row_sum)
     # Non-negative values
-    assert np_geq(F, 0).all()
+    if all_positive:
+        assert np_geq(F, 0).all()
 
 def update_state(F, tick_length, S, I, R, N):
     """Process one tick.
@@ -200,7 +201,7 @@ def step_SIR(tick_length, S, I, R, N):
     Rnew = R + effective_gamma * I
     return Snew, Inew, Rnew
 
-def get_normalised_F_matrix(t, N, hourly_F, tick_length=1, row_sum=1):
+def get_normalised_F_matrix(t, N, hourly_F, tick_length=1, row_sum=1, positive_values=True):
     """Get the F matrix for a tick, normalised for current population size.
 
     Params:
@@ -237,10 +238,25 @@ def get_normalised_F_matrix(t, N, hourly_F, tick_length=1, row_sum=1):
     F[~empty_stations] = F[~empty_stations] / normalisation[~empty_stations]
     F[empty_stations] = 0
     set_row_sum(F)
-    check_F(F, row_sum)
+    check_F(F, row_sum, positive_values)
     return F
 
 def run_simulation(state, hourly_F, tick_length, start_time=0, timesteps=None):
+    """Run a simulation from a given state using F matrices.
+
+    Params:
+        state: (S, I,, R, N) vectors to start simulation at
+        hourly_F: list of F matrices to use for the travel component of the simulation
+        tick_length: how long each tick (step) of the simulation should last
+        start_time: the time at which to start the simulation. Affects the initial
+                    index into the hourly_F array.
+        timesteps: how many steps to run the simulation for. None (default) runs until there
+                    is <0.5 infected people.
+
+    Returns:
+        tuple of three lists, representing that total number of people in each
+        compartment for each step of the simulation.
+    """
     t = start_time
     end_time = timesteps and t + (timesteps * tick_length)
     output = ([], [], [])
@@ -263,7 +279,7 @@ def run_simulation(state, hourly_F, tick_length, start_time=0, timesteps=None):
         Itotal = state[1].sum()
     return output
 
-def run_one_config_ode(N0, hourly_F, station_index, I_count, t, tick_length):
+def run_one_config_ode(N0, hourly_F, station_index, I_count, t0, tick_length=1, return_raw=False):
     initial_population = N0.sum()
     get_derivs = create_derivative_func(hourly_F, initial_population)
     
@@ -272,24 +288,33 @@ def run_one_config_ode(N0, hourly_F, station_index, I_count, t, tick_length):
     I0[station_index] = I_count
     S0 = N0 - I0 - R0
     y0 = np.concatenate((S0, I0, R0, N0))
-    result = solve_ivp(get_derivs, (t, t+7000), y0)
-    # import pdb; pdb.set_trace()
-    return result
+    result = solve_ivp(get_derivs, (t0, t0+7000), y0, method='Radau')
+    for t, y in enumerate(result.y.T):
+        state = np.split(np.array(y), 4)
+        try:
+            check_state(initial_population, *state)
+        except AssertionError:
+            debug_print(DETAIL, 'Possible ode issue at {} time', t)
+    # Return timeseries of sum of S, I, R across all stations
+    if return_raw:
+        return result
+    else:
+        return tuple(i.sum(axis=1) for i in np.split(result.y, 4, axis=0)[0:3])
 
 def create_derivative_func(hourly_F, initial_population):
     def get_derivs(t, y):
         S, I, R, N = np.split(y, 4)
         # check_state(initial_population, S, I, R, N)
-        F = get_normalised_F_matrix(int(t), N, hourly_F, row_sum=0)
-        idxs = ~np_leq(N, 0)
+        F = get_normalised_F_matrix(int(t), N, hourly_F, row_sum=0, positive_values=False)
+        idxs = ~np.logical_or(np_leq(N, 0), np.logical_or(np_leq(S, 0), np_leq(I, 0)))
         S_I_interaction = np.zeros_like(S)
         S_I_interaction[idxs] = BETA * S[idxs] * I[idxs] / N[idxs]
         dSdt = -S_I_interaction + F.T.dot(S)
         dIdt = S_I_interaction - GAMMA * I + F.T.dot(I)
         dRdt = GAMMA * I + F.T.dot(R)
         dNdt = dSdt + dIdt + dRdt
-        assert np.allclose(F.T.dot(N), dNdt, atol=1e-10)
-        assert np.isclose(0, dNdt.sum())
+        assert np.allclose(F.T.dot(N), dNdt, atol=0.1)
+        assert np.isclose(0, dNdt.sum(), atol=0.1)
         return np.concatenate((dSdt, dIdt, dRdt, dNdt))
     return get_derivs
 
@@ -321,6 +346,7 @@ def run_all_stations_times():
                 for t in START_TIMES:
                     try:
                         result = run_one_config(INITIAL_N, hourly_F, station_index, I_count, t)
+                        write_result(station_index, t, I_count, result, writer)
                     except Exception:
                         if VERBOSITY == DEBUG:
                             raise
@@ -329,11 +355,12 @@ def run_all_stations_times():
                             print('Error running with start state: station {}, t {}, I {}'.format(station_index, t, I_count))
                             traceback.print_exc()
                             print('---------------------------------------------------------')
-                    else:
-                        for i, name in enumerate(('S', 'I', 'R')):
-                            outrow = [station_index, t, I_count, name]
-                            outrow.extend(result[i])
-                            writer.writerow(outrow)
+
+def write_result(result, writer, *info):
+    for i, name in enumerate(('S', 'I', 'R')):
+        outrow = list(info) + [name]
+        outrow.extend(result[i])
+        writer.writerow(outrow)
 
 def run_all_tick_lengths():
     np.seterr(all='raise', under='warn')
@@ -346,11 +373,15 @@ def run_all_tick_lengths():
 
     with open('results.csv', 'w', newline='') as outfile:
         writer = csv.writer(outfile)
+        debug_print(PROGRESS, 'Running ODE')
+        result = run_one_config_ode(INITIAL_N, hourly_F, STATION_INDEX, INITIAL_I, INITIAL_T)
+        write_result(result, writer, 0)
         for tick_length in range(1, MAX_LENGTH):
             debug_print(PROGRESS, 'Tick length {} of {}', tick_length, MAX_LENGTH)
             try:
                 result = run_one_config(INITIAL_N, hourly_F, STATION_INDEX, INITIAL_I, INITIAL_T,
                                         tick_length=tick_length)
+                write_result(result, writer, tick_length)
             except Exception:
                 if VERBOSITY == DEBUG:
                     raise
@@ -359,11 +390,6 @@ def run_all_tick_lengths():
                     print('Error running with tick length {}'.format(tick_length))
                     traceback.print_exc()
                     print('---------------------------------------------------------')
-            else:
-                for i, name in enumerate(('S', 'I', 'R')):
-                    outrow = [tick_length, name]
-                    outrow.extend(result[i])
-                    writer.writerow(outrow)
 
 def setup():
     stations_pop, INITIAL_N = get_pop_data()
