@@ -179,7 +179,7 @@ def update_state(F, tick_length, S, I, R, N):
 
 def step_travel(F, S, I, R, N):
     """One timestep of travel"""
-    assert (F.sum(axis=1) == 1).all()
+    assert np.allclose(F.sum(axis=1), 1)
     S = F.T.dot(S)
     I = F.T.dot(I)
     R = F.T.dot(R)
