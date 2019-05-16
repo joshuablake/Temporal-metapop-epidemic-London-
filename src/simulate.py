@@ -17,9 +17,7 @@ GAMMA = NP_TYPE((1/3) / 24)
 
 START_TIMES = (
     3,              # Monday morning
-    24 * 2 + 12,    # Midweek
     24 * 4 + 3,     # Friday morning
-    24 * 4 + 12,    # Midday Friday
     24 * 5 + 3,     # Saturday Morning
 )
 INITIAL_INFECTEDS = (1, 10, 10000)
