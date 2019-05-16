@@ -5,3 +5,5 @@ __pycache__
 .vscode
 results.*
 intel-env
+src/.hypothesis/**
+results_ticks.csv
