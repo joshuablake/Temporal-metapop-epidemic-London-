@@ -292,24 +292,24 @@ def run_one_config_ode(N0, hourly_F, station_index, I_count, t0, tick_length=1, 
     I0 = np.zeros_like(N0)
     I0[station_index] = I_count
     S0 = N0 - I0 - R0
-    y0 = np.concatenate((S0, I0, R0, N0))
+    y0 = np.concatenate((S0, I0, R0))
     result = solve_ivp(get_derivs, (t0, t0+7000), y0, method='Radau')
     for t, y in enumerate(result.y.T):
-        state = np.split(np.array(y), 4)
+        state = np.array(np.split(np.array(y, dtype=NP_TYPE), 3), dtype=NP_TYPE)
         try:
-            check_state(initial_population, *state)
+            check_state(initial_population, *state, N=state.sum(axis=0))
         except AssertionError:
             debug_print(DETAIL, 'Possible ode issue at {} time', t)
     # Return timeseries of sum of S, I, R across all stations
     if return_raw:
         return result
     else:
-        return tuple(i.sum(axis=1) for i in np.split(result.y, 4, axis=0)[0:3])
+        result = (i.sum(axis=1) for i in np.split(result.y, 3, axis=0))
 
 def create_derivative_func(hourly_F, initial_population):
     def get_derivs(t, y):
-        S, I, R, N = np.split(y, 4)
-        # check_state(initial_population, S, I, R, N)
+        S, I, R = np.split(y, 3)
+        N = S + I + R
         F = get_normalised_F_matrix(int(t), N, hourly_F, row_sum=0, positive_values=False)
         idxs = ~np.logical_or(np_leq(N, 0), np.logical_or(np_leq(S, 0), np_leq(I, 0)))
         S_I_interaction = np.zeros_like(S)
@@ -320,7 +320,7 @@ def create_derivative_func(hourly_F, initial_population):
         dNdt = dSdt + dIdt + dRdt
         assert np.allclose(F.T.dot(N), dNdt, atol=0.1)
         assert np.isclose(0, dNdt.sum(), atol=0.1)
-        return np.concatenate((dSdt, dIdt, dRdt, dNdt))
+        return np.concatenate((dSdt, dIdt, dRdt))
     return get_derivs
 
 def run_one_config(N, hourly_F, station_index, I_count, t, tick_length=1):
