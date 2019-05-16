@@ -40,6 +40,9 @@ DAY_LOOKUP = {
     'Sun': 6,
 }
 
+def get_false_indices(arr):
+    return [i for i, v in enumerate(arr) if not v]
+
 def debug_print(level, msg, *vars):
     """Prints a message depending on current verbosity and message severity"""
     if level <= VERBOSITY:
@@ -224,9 +227,10 @@ def get_normalised_F_matrix(t, N, hourly_F, tick_length=1, row_sum=1, positive_v
         diags = np.diag_indices_from(F)
         F[diags] = 0
         mask = (F.sum(axis=1) > 1)
-        F[mask] = F[mask,] / F[mask].sum(axis=1).reshape(F[mask].shape[0], 1)
-        debug_print(DEBUG, 'Adjusting too high F at {}',
-                    ', '.join(str(i) for i, val in enumerate(mask) if val))
+        if mask.any():
+            F[mask] = F[mask,] / F[mask].sum(axis=1).reshape(F[mask].shape[0], 1)
+            debug_print(DEBUG, 'Adjusting too high F at {}',
+                        ', '.join(str(i) for i, val in enumerate(mask) if val))
         F[diags] = np.full_like(F[diags], row_sum) - F.sum(axis=1)
     # Calculate start and end indices for hourly_F
     start_idx = t % len(hourly_F)
