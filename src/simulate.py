@@ -318,8 +318,12 @@ def create_derivative_func(hourly_F, initial_population):
         dIdt = S_I_interaction - GAMMA * I + F.T.dot(I)
         dRdt = GAMMA * I + F.T.dot(R)
         dNdt = dSdt + dIdt + dRdt
-        assert np.allclose(F.T.dot(N), dNdt, atol=0.1)
-        assert np.isclose(0, dNdt.sum(), atol=0.1)
+        try:
+            assert np.allclose(F.T.dot(N), dNdt, atol=0.1)
+            assert np.isclose(0, dNdt.sum(), atol=0.1)
+        except AssertionError:
+            check_state(initial_population, S, I, R, N)
+            raise
         return np.concatenate((dSdt, dIdt, dRdt))
     return get_derivs
 
