@@ -110,7 +110,7 @@ def create_F_matrices(move_data, stations_pop):
     matrix_count = calc_hour(6, 23) + 1
     # hourly_F[h][i][j] is the number of people travelling from i to j in hour h
     # h is an hour of the week
-    hourly_F = np.zeros((matrix_count, STATION_COUNT, STATION_COUNT))
+    hourly_F = np.zeros((matrix_count, STATION_COUNT, STATION_COUNT), dtype=np.int32)
     for row in move_data.itertuples():
         start = STATION_LOOKUP[row.Start]
         end = STATION_LOOKUP[row.End]
@@ -231,7 +231,8 @@ def get_normalised_F_matrix(t, N, hourly_F, tick_length=1, row_sum=1, positive_v
     # Calculate start and end indices for hourly_F
     start_idx = t % len(hourly_F)
     end_idx = (start_idx + tick_length) % len(hourly_F)
-    F = hourly_F[start_idx:end_idx].sum(axis=0)
+    F = np.array(hourly_F[start_idx:end_idx].sum(axis=0), dtype=NP_TYPE)
+    assert F.shape == (N.shape[0], N.shape[0])
     # Perform (number moving) / (number in station) to get proportions
     empty_stations = np.isclose(N, 0)       # ignore 0s 
     normalisation = N.reshape((N.shape[0], 1))
