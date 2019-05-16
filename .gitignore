@@ -7,3 +7,4 @@ results.*
 intel-env
 src/.hypothesis/**
 results_ticks.csv
+*.npy

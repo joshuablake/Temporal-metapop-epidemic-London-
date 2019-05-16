@@ -20,13 +20,13 @@ START_TIMES = (
     24 * 4 + 3,     # Friday morning
     24 * 5 + 3,     # Saturday Morning
 )
-INITIAL_INFECTEDS = (1, 10, 10000)
+INITIAL_INFECTEDS = (1, 100)
 
 NONE = 0
 PROGRESS = 1
 DETAIL = 2
 DEBUG = 3
-VERBOSITY = DETAIL
+VERBOSITY = PROGRESS
 
 DAY_LOOKUP = {
     'Mon': 0,
@@ -225,10 +225,7 @@ def get_normalised_F_matrix(t, N, hourly_F, tick_length=1, row_sum=1, positive_v
         diags = np.diag_indices_from(F)
         F[diags] = 0
         mask = (F.sum(axis=1) > 1)
-        if mask.any():
-            F[mask] = F[mask,] / F[mask].sum(axis=1).reshape(F[mask].shape[0], 1)
-            debug_print(DEBUG, 'Adjusting too high F at {}',
-                        ', '.join(str(i) for i, val in enumerate(mask) if val))
+        F[mask] = F[mask,] / F[mask].sum(axis=1).reshape(F[mask].shape[0], 1)
         F[diags] = np.full_like(F[diags], row_sum) - F.sum(axis=1)
     # Calculate start and end indices for hourly_F
     start_idx = t % len(hourly_F)
@@ -244,11 +241,11 @@ def get_normalised_F_matrix(t, N, hourly_F, tick_length=1, row_sum=1, positive_v
     check_F(F, row_sum, positive_values)
     return F
 
-def run_simulation(state, hourly_F, tick_length, start_time=0, timesteps=None):
+def run_simulation(state, hourly_F, tick_length, start_time=0, timesteps=None, config=[]):
     """Run a simulation from a given state using F matrices.
 
     Params:
-        state: (S, I,, R, N) vectors to start simulation at
+        state: (S, I, R, N) vectors to start simulation at
         hourly_F: list of F matrices to use for the travel component of the simulation
         tick_length: how long each tick (step) of the simulation should last
         start_time: the time at which to start the simulation. Affects the initial
@@ -262,17 +259,17 @@ def run_simulation(state, hourly_F, tick_length, start_time=0, timesteps=None):
     """
     t = start_time
     end_time = timesteps and t + (timesteps * tick_length)
-    output = ([], [], [])
+    output = np.array([config+[i] for i in range(4)], dtype=NP_TYPE)
 
-    def update_output(state):
-        for out_row, state_row in zip(output, state):
-            out_row.append(state_row.sum())
+    def update_output(state, output):
+        out_row = np.array([[i.sum() for i in state]])
+        return np.concatenate((output, out_row.T), axis=1)
     
     Itotal = state[1].sum()
     while Itotal > 0.5 and (end_time is None or t < end_time):
         if t % 1000 == 0:
             debug_print(DETAIL, '{}: {} infected', t, Itotal)
-        update_output(state)
+        output = update_output(state, output)
         F = get_normalised_F_matrix(t, state[3], hourly_F, tick_length)
         if t / 24 < 6 and t % 24 == 17:
             debug_print(DEBUG, '{} infecteds move', (F.dot(state[1]).sum()))
@@ -325,49 +322,52 @@ def create_derivative_func(hourly_F, initial_population):
         return np.concatenate((dSdt, dIdt, dRdt))
     return get_derivs
 
-def run_one_config(N, hourly_F, station_index, I_count, t, tick_length=1):
+def run_one_config(N, hourly_F, station_index, I_count, t, tick_length=1, config=[]):
     debug_print(DEBUG, 'Shape of N is: {}', N.shape)
     R = np.zeros_like(N)
     I = np.zeros_like(N)
     I[station_index] = I_count
     S = N - I
     state = (S, I, R, N)
-    return run_simulation(state, hourly_F, start_time=t, tick_length=tick_length)
+    return run_simulation(state, hourly_F, start_time=t, tick_length=tick_length, config=config)
 
+def add_result(prev_results, new_results):
+    if prev_results is None:
+        return new_results
+    if prev_results.shape[1] < new_results.shape[1]:
+        to_add = new_results.shape[1] - prev_results.shape[1]
+        prev_results = np.pad(prev_results, ((0, 0), (0, to_add)), 'edge')
+    elif prev_results.shape[1] > new_results.shape[1]:
+        to_add = prev_results.shape[1] - new_results.shape[1]
+        new_results = np.pad(new_results, ((0, 0), (0, to_add)), 'edge')
+    return np.concatenate((prev_results, new_results))
+    
 def run_all_stations_times():
     np.seterr(all='raise', under='warn')
-    HEADER = ('Init_station', 'Init_time', 'Init_count', 'Count_type')
     STATION_COUNT, INITIAL_N, hourly_F = setup()
+    results = None
 
-    with open('results.csv', 'w', newline='') as outfile:
-        writer = csv.writer(outfile)
-        if OUTPUT_HEADER:
-            writer.writerow(HEADER)
-        for station_index in range(STATION_COUNT):
-            debug_print(PROGRESS, 'Station {} of {}', station_index, STATION_COUNT)
-            for I_count in INITIAL_INFECTEDS:
-                if INITIAL_N[station_index] < I_count:
-                    debug_print(PROGRESS, 'Too small population to start with {} infections'
-                            .format(I_count))
-                    break
-                for t in START_TIMES:
-                    try:
-                        result = run_one_config(INITIAL_N, hourly_F, station_index, I_count, t)
-                        write_result(station_index, t, I_count, result, writer)
-                    except Exception:
-                        if VERBOSITY == DEBUG:
-                            raise
-                        else:
-                            print('---------------------------------------------------------')
-                            print('Error running with start state: station {}, t {}, I {}'.format(station_index, t, I_count))
-                            traceback.print_exc()
-                            print('---------------------------------------------------------')
-
-def write_result(result, writer, *info):
-    for i, name in enumerate(('S', 'I', 'R')):
-        outrow = list(info) + [name]
-        outrow.extend(result[i])
-        writer.writerow(outrow)
+    for station_index in range(STATION_COUNT):
+        debug_print(PROGRESS, 'Station {} of {}', station_index, STATION_COUNT)
+        for I_count in INITIAL_INFECTEDS:
+            if INITIAL_N[station_index] < I_count:
+                debug_print(PROGRESS, 'Too small population to start with {} infections'
+                        .format(I_count))
+                break
+            for t in START_TIMES:
+                try:
+                    config = [station_index, t, I_count]
+                    result = run_one_config(INITIAL_N, hourly_F, station_index, I_count, t, config=config)
+                    results = add_result(results, result)
+                except Exception:
+                    if VERBOSITY == DEBUG:
+                        raise
+                    else:
+                        print('---------------------------------------------------------')
+                        print('Error running with start state: station {}, t {}, I {}'.format(station_index, t, I_count))
+                        traceback.print_exc()
+                        print('---------------------------------------------------------')
+    np.save('test.npy', results)
 
 def run_all_tick_lengths():
     np.seterr(all='raise', under='warn')
@@ -377,26 +377,27 @@ def run_all_tick_lengths():
     STATION_INDEX = 355
     INITIAL_T = 108
     INITIAL_I = 1
+    results = None
 
-    with open('results.csv', 'w', newline='') as outfile:
-        writer = csv.writer(outfile)
-        debug_print(PROGRESS, 'Running ODE')
-        result = run_one_config_ode(INITIAL_N, hourly_F, STATION_INDEX, INITIAL_I, INITIAL_T)
-        write_result(result, writer, 0)
-        for tick_length in range(1, MAX_LENGTH):
-            debug_print(PROGRESS, 'Tick length {} of {}', tick_length, MAX_LENGTH)
-            try:
-                result = run_one_config(INITIAL_N, hourly_F, STATION_INDEX, INITIAL_I, INITIAL_T,
-                                        tick_length=tick_length)
-                write_result(result, writer, tick_length)
-            except Exception:
-                if VERBOSITY == DEBUG:
-                    raise
-                else:
-                    print('---------------------------------------------------------')
-                    print('Error running with tick length {}'.format(tick_length))
-                    traceback.print_exc()
-                    print('---------------------------------------------------------')
+    debug_print(PROGRESS, 'Running ODE')
+    result = run_one_config_ode(INITIAL_N, hourly_F, STATION_INDEX, INITIAL_I, INITIAL_T, return_raw=True)
+    result = np.concatenate((np.array[[0, 0, 0]], result))
+    results = add_result(results, result)
+    for tick_length in range(1, MAX_LENGTH):
+        debug_print(PROGRESS, 'Tick length {} of {}', tick_length, MAX_LENGTH)
+        try:
+            result = run_one_config(INITIAL_N, hourly_F, STATION_INDEX, INITIAL_I, INITIAL_T,
+                                    tick_length=tick_length, config=[tick_length])
+            results = add_result(results, result)
+        except Exception:
+            if VERBOSITY == DEBUG:
+                raise
+            else:
+                print('---------------------------------------------------------')
+                print('Error running with tick length {}'.format(tick_length))
+                traceback.print_exc()
+                print('---------------------------------------------------------')
+    np.save('tick_results.npy', results)
 
 def setup():
     stations_pop, INITIAL_N = get_pop_data()
@@ -406,4 +407,4 @@ def setup():
     return STATION_COUNT, INITIAL_N, hourly_F
 
 if __name__ == '__main__':
-    run_all_tick_lengths()
+    run_all_stations_times()
