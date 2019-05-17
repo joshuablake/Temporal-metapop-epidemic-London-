@@ -259,7 +259,7 @@ def run_simulation(state, hourly_F, tick_length, start_time=0, timesteps=None, c
     """
     t = start_time
     end_time = timesteps and t + (timesteps * tick_length)
-    output = np.array([config+[i] for i in range(4)], dtype=NP_TYPE)
+    output = np.array([list(config)+[i] for i in range(4)], dtype=NP_TYPE)
 
     def update_output(state, output):
         out_row = np.array([[i.sum() for i in state]])
@@ -346,58 +346,63 @@ def run_all_stations_times():
     np.seterr(all='raise', under='warn')
     STATION_COUNT, INITIAL_N, hourly_F = setup()
     results = None
-
-    for station_index in range(STATION_COUNT):
-        debug_print(PROGRESS, 'Station {} of {}', station_index, STATION_COUNT)
-        for I_count in INITIAL_INFECTEDS:
-            if INITIAL_N[station_index] < I_count:
-                debug_print(PROGRESS, 'Too small population to start with {} infections'
-                        .format(I_count))
-                break
-            for t in START_TIMES:
-                try:
-                    config = [station_index, t, I_count]
-                    result = run_one_config(INITIAL_N, hourly_F, station_index, I_count, t, config=config)
-                    results = add_result(results, result)
-                except Exception:
-                    if VERBOSITY == DEBUG:
-                        raise
-                    else:
-                        print('---------------------------------------------------------')
-                        print('Error running with start state: station {}, t {}, I {}'.format(station_index, t, I_count))
-                        traceback.print_exc()
-                        print('---------------------------------------------------------')
-    np.save('test.npy', results)
+    run_multiple_scenarios(
+        'stations_times.npy', all_stations=True, initial_infections=INITIAL_INFECTEDS,
+        start_times=START_TIMES
+    )
 
 def run_all_tick_lengths():
-    np.seterr(all='raise', under='warn')
-    _, INITIAL_N, hourly_F = setup()
     MAX_LENGTH = 25
     # Randomly chosen scenario
     STATION_INDEX = 355
     INITIAL_T = 108
     INITIAL_I = 1
+    run_multiple_scenarios(
+        'tick_lengths.npy', stations=[STATION_INDEX], tick_lengths=range(1, MAX_LENGTH),
+        initial_infections=[INITIAL_I], start_times=[INITIAL_T]
+    )
+
+def run_multiple_scenarios(result_filename, all_stations=False, stations=[0],
+                           tick_lengths=[1], initial_infections=[1],
+                           start_times=[3]):
+    np.seterr(all='raise', under='warn')
+    CONFIG_STR = 'Starting at station {} at time {} (tick length {}) with {} infections.'
+    STATION_COUNT, INITIAL_N, hourly_F = setup()
+    if all_stations:
+        stations = range(STATION_COUNT)
     results = None
 
-    debug_print(PROGRESS, 'Running ODE')
-    result = run_one_config_ode(INITIAL_N, hourly_F, STATION_INDEX, INITIAL_I, INITIAL_T, return_raw=True)
-    result = np.concatenate((np.array[[0, 0, 0]], result))
-    results = add_result(results, result)
-    for tick_length in range(1, MAX_LENGTH):
-        debug_print(PROGRESS, 'Tick length {} of {}', tick_length, MAX_LENGTH)
-        try:
-            result = run_one_config(INITIAL_N, hourly_F, STATION_INDEX, INITIAL_I, INITIAL_T,
-                                    tick_length=tick_length, config=[tick_length])
-            results = add_result(results, result)
-        except Exception:
-            if VERBOSITY == DEBUG:
-                raise
-            else:
-                print('---------------------------------------------------------')
-                print('Error running with tick length {}'.format(tick_length))
-                traceback.print_exc()
-                print('---------------------------------------------------------')
-    np.save('tick_results.npy', results)
+    total_runs = len(stations) * len(initial_infections) * len(tick_lengths) * len(start_times)
+    i = 0
+    for station in stations:
+        debug_print(PROGRESS, 'Station {} of {}', station, STATION_COUNT)
+        for initial_infection_count in initial_infections:
+            if INITIAL_N[station] < initial_infection_count:
+                debug_print(PROGRESS, 'Too small population to start with {} infections'
+                        .format(initial_infection_count))
+                break
+            for time in start_times:
+                for tick_length in tick_lengths:
+                    i += 1
+                    debug_print(PROGRESS, 'Run {} of {}', i, total_runs)
+                    try:
+                        config = (station, time, tick_length, initial_infection_count)
+                        debug_print(DETAIL, CONFIG_STR, *config)
+                        result = run_one_config(
+                            INITIAL_N, hourly_F, station, initial_infection_count,
+                            time, tick_length, config
+                        )
+                        results = add_result(results, result)
+                    except Exception:
+                        if VERBOSITY == DEBUG:
+                            raise
+                        else:
+                            print('---------------------------------------------------------')
+                            print('ERROR')
+                            print(CONFIG_STR.format(*config))
+                            traceback.print_exc()
+                            print('---------------------------------------------------------')
+    np.save(result_filename, results)
 
 def setup():
     stations_pop, INITIAL_N = get_pop_data()
