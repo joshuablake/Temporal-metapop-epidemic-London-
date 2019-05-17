@@ -3,6 +3,7 @@
 import csv
 import pandas as pd
 import numpy as np
+import random
 import traceback
 from scipy.integrate import solve_ivp
 from os import path
@@ -362,20 +363,26 @@ def run_all_tick_lengths():
         initial_infections=[INITIAL_I], start_times=[INITIAL_T]
     )
 
+def run_different_periods():
+    stations = random.sample(range(395), 10)
+    periods = (0, 24, None)
+    run_multiple_scenarios(
+        'travel_periods.py', stations=stations, travel_periodicities=periods
+    )
+
 def run_multiple_scenarios(result_filename, all_stations=False, stations=[0],
                            tick_lengths=[1], initial_infections=[1],
-                           start_times=[3]):
+                           start_times=[3], travel_periodicities=[None]):
     np.seterr(all='raise', under='warn')
-    CONFIG_STR = 'Starting at station {} at time {} (tick length {}) with {} infections.'
+    CONFIG_STR = 'Starting at station {} at time {} (tick length {}) with {} infections. Periodicity is {}.'
     STATION_COUNT, INITIAL_N, hourly_F = setup()
     if all_stations:
         stations = range(STATION_COUNT)
     results = None
 
-    total_runs = len(stations) * len(initial_infections) * len(tick_lengths) * len(start_times)
+    total_runs = len(stations) * len(initial_infections) * len(tick_lengths) * len(start_times) * len(travel_periodicities)
     i = 0
     for station in stations:
-        debug_print(PROGRESS, 'Station {} of {}', station, STATION_COUNT)
         for initial_infection_count in initial_infections:
             if INITIAL_N[station] < initial_infection_count:
                 debug_print(PROGRESS, 'Too small population to start with {} infections'
@@ -383,25 +390,34 @@ def run_multiple_scenarios(result_filename, all_stations=False, stations=[0],
                 break
             for time in start_times:
                 for tick_length in tick_lengths:
-                    i += 1
-                    debug_print(PROGRESS, 'Run {} of {}', i, total_runs)
-                    try:
-                        config = (station, time, tick_length, initial_infection_count)
-                        debug_print(DETAIL, CONFIG_STR, *config)
-                        result = run_one_config(
-                            INITIAL_N, hourly_F, station, initial_infection_count,
-                            time, tick_length, config
-                        )
-                        results = add_result(results, result)
-                    except Exception:
-                        if VERBOSITY == DEBUG:
-                            raise
+                    for period in travel_periodicities:
+                        i += 1
+                        debug_print(PROGRESS, 'Run {} of {}', i, total_runs)
+                        if period is None:
+                            F_to_use = hourly_F
+                        elif period > 0:
+                            F_to_use = hourly_F[:period]
                         else:
-                            print('---------------------------------------------------------')
-                            print('ERROR')
-                            print(CONFIG_STR.format(*config))
-                            traceback.print_exc()
-                            print('---------------------------------------------------------')
+                            F_shape = hourly_F.shape
+                            F_shape[0] = 1
+                            F_to_use = np.zeros(F_shape, dtype=NP_TYPE)
+                        try:
+                            config = (station, time, tick_length, initial_infection_count, period)
+                            debug_print(DETAIL, CONFIG_STR, *config)
+                            result = run_one_config(
+                                INITIAL_N, F_to_use, station, initial_infection_count,
+                                time, tick_length, config
+                            )
+                            results = add_result(results, result)
+                        except Exception:
+                            if VERBOSITY == DEBUG:
+                                raise
+                            else:
+                                print('---------------------------------------------------------')
+                                print('ERROR')
+                                print(CONFIG_STR.format(*config))
+                                traceback.print_exc()
+                                print('---------------------------------------------------------')
     np.save(result_filename, results)
 
 def setup():
@@ -412,4 +428,6 @@ def setup():
     return STATION_COUNT, INITIAL_N, hourly_F
 
 if __name__ == '__main__':
+    run_different_periods()
     run_all_stations_times()
+    run_all_tick_lengths()
