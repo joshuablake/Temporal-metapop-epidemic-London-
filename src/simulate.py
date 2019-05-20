@@ -344,9 +344,6 @@ def add_result(prev_results, new_results):
     return np.concatenate((prev_results, new_results))
     
 def run_all_stations_times():
-    np.seterr(all='raise', under='warn')
-    STATION_COUNT, INITIAL_N, hourly_F = setup()
-    results = None
     run_multiple_scenarios(
         'stations_times.npy', all_stations=True, initial_infections=INITIAL_INFECTEDS,
         start_times=START_TIMES
@@ -398,7 +395,7 @@ def run_multiple_scenarios(result_filename, all_stations=False, stations=[0],
                         elif period > 0:
                             F_to_use = hourly_F[:period]
                         else:
-                            F_shape = hourly_F.shape
+                            F_shape = list(hourly_F.shape)
                             F_shape[0] = 1
                             F_to_use = np.zeros(F_shape, dtype=NP_TYPE)
                         try:
@@ -429,5 +426,5 @@ def setup():
 
 if __name__ == '__main__':
     run_different_periods()
-    run_all_stations_times()
     run_all_tick_lengths()
+    run_all_stations_times()
