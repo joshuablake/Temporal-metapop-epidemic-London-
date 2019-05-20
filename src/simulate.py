@@ -369,7 +369,7 @@ def run_different_periods():
 
 def run_multiple_scenarios(result_filename, all_stations=False, stations=[0],
                            tick_lengths=[1], initial_infections=[1],
-                           start_times=[3], travel_periodicities=[None]):
+                           start_times=[3], travel_periodicities=[None], travel_multipliers=[1]):
     np.seterr(all='raise', under='warn')
     CONFIG_STR = 'Starting at station {} at time {} (tick length {}) with {} infections. Periodicity is {}.'
     STATION_COUNT, INITIAL_N, hourly_F = setup()
@@ -377,7 +377,7 @@ def run_multiple_scenarios(result_filename, all_stations=False, stations=[0],
         stations = range(STATION_COUNT)
     results = None
 
-    total_runs = len(stations) * len(initial_infections) * len(tick_lengths) * len(start_times) * len(travel_periodicities)
+    total_runs = len(stations) * len(initial_infections) * len(tick_lengths) * len(start_times) * len(travel_periodicities) * len(travel_multipliers)
     i = 0
     for station in stations:
         for initial_infection_count in initial_infections:
@@ -388,33 +388,35 @@ def run_multiple_scenarios(result_filename, all_stations=False, stations=[0],
             for time in start_times:
                 for tick_length in tick_lengths:
                     for period in travel_periodicities:
-                        i += 1
-                        debug_print(PROGRESS, 'Run {} of {}', i, total_runs)
-                        if period is None:
-                            F_to_use = hourly_F
-                        elif period > 0:
-                            F_to_use = hourly_F[:period]
-                        else:
-                            F_shape = list(hourly_F.shape)
-                            F_shape[0] = 1
-                            F_to_use = np.zeros(F_shape, dtype=NP_TYPE)
-                        try:
-                            config = (station, time, tick_length, initial_infection_count, period)
-                            debug_print(DETAIL, CONFIG_STR, *config)
-                            result = run_one_config(
-                                INITIAL_N, F_to_use, station, initial_infection_count,
-                                time, tick_length, config
-                            )
-                            results = add_result(results, result)
-                        except Exception:
-                            if VERBOSITY == DEBUG:
-                                raise
+                        for multiplier in travel_multipliers:
+                            i += 1
+                            debug_print(PROGRESS, 'Run {} of {}', i, total_runs)
+                            if period is None:
+                                F_to_use = hourly_F
+                            elif period > 0:
+                                F_to_use = hourly_F[:period]
                             else:
-                                print('---------------------------------------------------------')
-                                print('ERROR')
-                                print(CONFIG_STR.format(*config))
-                                traceback.print_exc()
-                                print('---------------------------------------------------------')
+                                F_shape = list(hourly_F.shape)
+                                F_shape[0] = 1
+                                F_to_use = np.zeros(F_shape, dtype=NP_TYPE)
+                            F_to_use *= multiplier
+                            try:
+                                config = (station, time, tick_length, initial_infection_count, period, multiplier)
+                                debug_print(DETAIL, CONFIG_STR, *config)
+                                result = run_one_config(
+                                    INITIAL_N, F_to_use, station, initial_infection_count,
+                                    time, tick_length, config
+                                )
+                                results = add_result(results, result)
+                            except Exception:
+                                if VERBOSITY == DEBUG:
+                                    raise
+                                else:
+                                    print('---------------------------------------------------------')
+                                    print('ERROR')
+                                    print(CONFIG_STR.format(*config))
+                                    traceback.print_exc()
+                                    print('---------------------------------------------------------')
     np.save(result_filename, results)
 
 def setup():
