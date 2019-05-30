@@ -361,10 +361,11 @@ def run_all_tick_lengths():
     )
 
 def run_different_periods():
-    stations = random.sample(range(395), 10)
-    periods = (0, 24, None)
+    stations = random.sample(range(395), 40)
+    periods = (24, 24*7)
+    multipliers = (1, 2, 4, 8)
     run_multiple_scenarios(
-        'travel_periods.py', stations=stations, travel_periodicities=periods
+        'travel_periods2.npy', stations=stations, travel_periodicities=periods, travel_multipliers=multipliers
     )
 
 def run_multiple_scenarios(result_filename, all_stations=False, stations=[0],
@@ -393,13 +394,10 @@ def run_multiple_scenarios(result_filename, all_stations=False, stations=[0],
                             debug_print(PROGRESS, 'Run {} of {}', i, total_runs)
                             if period is None:
                                 F_to_use = hourly_F
-                            elif period > 0:
-                                F_to_use = hourly_F[:period]
                             else:
-                                F_shape = list(hourly_F.shape)
-                                F_shape[0] = 1
-                                F_to_use = np.zeros(F_shape, dtype=NP_TYPE)
-                            F_to_use *= multiplier
+                                F_to_use = hourly_F[:period]
+                            if multiplier != 1:
+                                F_to_use = F_to_use.copy() * multiplier
                             try:
                                 config = (station, time, tick_length, initial_infection_count, period, multiplier)
                                 debug_print(DETAIL, CONFIG_STR, *config)
@@ -428,5 +426,3 @@ def setup():
 
 if __name__ == '__main__':
     run_different_periods()
-    run_all_tick_lengths()
-    run_all_stations_times()
