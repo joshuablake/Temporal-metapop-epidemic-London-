@@ -110,42 +110,9 @@ def st_unnormalised_F(draw, station_count):
     return F
 
 @st.composite
-def st_ode_params(draw):
-    station_count = draw(st.integers(1, 50))
-    N0 = draw(npst.arrays(
-        dtype = simulate.NP_TYPE,
-        shape = (station_count,),
-        elements = st.integers(min_value=0, max_value=1e15),
-        fill = st.just(0)
-    ))
-    hourly_F = np.array(draw(st.lists(elements=st_unnormalised_F(station_count), min_size=1)))
-    station_index = draw(st.integers(0, station_count-1))
-    I_count = draw(st.integers(0, N0[station_index]))
-    t = draw(st.integers())
-    return N0, hourly_F, station_index, I_count, t, 1
-
-@st.composite
 def st_state_and_hourly_F(draw):
     state = draw(st_state(max_stations=50))
     station_count = state[0].shape[0]
     hourly_F = np.array(draw(st.lists(elements=st_unnormalised_F(station_count), min_size=1)))
     return state, hourly_F
 
-@hyp.given(st_state_and_hourly_F(), st.integers(0))
-def test_derivatives_are_sane(state_and_F, t):
-    state, hourly_F = state_and_F
-    initial_population = state[-1].sum()
-    assume_check_func(simulate.check_state, initial_population, *state)
-    y = np.concatenate(state)
-    deriv_func = simulate.create_derivative_func(hourly_F, initial_population)
-    deriv_func(t, y)
-
-@hyp.given(st_ode_params())
-@hyp.settings(deadline=None)
-def test_ode_valid(args):
-    population = args[0].sum()
-    results = simulate.run_one_config_ode(*args, return_raw=True)
-    assert results.success
-    for y in results.y.T:
-        state = np.split(np.array(y), 4)
-        simulate.check_state(population, *state)
