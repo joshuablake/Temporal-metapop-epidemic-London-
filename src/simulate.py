@@ -16,6 +16,10 @@ OUTPUT_HEADER = False
 BETA = NP_TYPE(0.5 / 24)
 GAMMA = NP_TYPE((1/3) / 24)
 
+# Other constants
+JOURNEY_MULTIPLIER = 20 # Dataset is a 5% sample so multiply by 20
+
+# Simulation parameters
 START_TIMES = (
     3,              # Monday morning
     24 * 4 + 3,     # Friday morning
@@ -40,6 +44,7 @@ DAY_LOOKUP = {
 }
 
 def get_false_indices(arr):
+    """Returns a list of the indices of an iterable with false values, used for debugging"""
     return [i for i, v in enumerate(arr) if not v]
 
 def debug_print(level, msg, *vars):
@@ -118,17 +123,17 @@ def create_F_matrices(move_data, stations_pop):
         end = STATION_LOOKUP[row.End]
         if start != end:
             hour = calc_hour(row.Day, row.Hour)
-            hourly_F[hour][start][end] = 20 * row.Journeys
+            hourly_F[hour][start][end] = JOURNEY_MULTIPLIER * row.Journeys
     return hourly_F
 
 def np_geq(a, b):
-    """ If a >= b using float comparison for ="""
+    """Calculate a >= b using float comparison for ="""
     lt = a > b
     eq = np.isclose(a, b)
     return np.logical_or(lt, eq)
 
 def np_leq(a, b):
-    """ If a <= b using float comparison for ="""
+    """Calculate a <= b using float comparison for ="""
     lt = a < b
     eq = np.isclose(a, b)
     return np.logical_or(lt, eq)
@@ -161,7 +166,7 @@ def update_state(F, tick_length, S, I, R, N):
 
     Params:
         F: matrix to use for travel
-        tick_length: how long this tick should be
+        tick_length: how long this tick should be in hours
         (S, I, R, N): starting state
 
     Returns:
@@ -181,17 +186,17 @@ def update_state(F, tick_length, S, I, R, N):
     return (S, I, R, N)
 
 def step_travel(F, S, I, R, N):
-    """One timestep of travel"""
-    assert np.allclose(F.sum(axis=1), 1)
+    """One timestep of travel (inter-population dynamics)"""
+    assert np.allclose(F.sum(axis=1), 1) # Check this is a valid F matrix
     S = F.T.dot(S)
     I = F.T.dot(I)
     R = F.T.dot(R)
     Nnew = S + I + R
-    assert np.allclose(Nnew, F.T.dot(N))
+    assert np.allclose(Nnew, F.T.dot(N)) # Sanity check on result
     return S, I, R, Nnew
 
 def step_SIR(tick_length, S, I, R, N):
-    """Move forward one SIR time step of tick_length"""
+    """Move forward one SIR time step of tick_length (intra-population dynamics)"""
     effective_beta = tick_length * BETA
     effective_gamma = tick_length * GAMMA
     # Empty compartments have no change, ignore them to avoid dividing by 0
@@ -253,10 +258,13 @@ def run_simulation(state, hourly_F, tick_length, start_time=0, timesteps=None, c
                     index into the hourly_F array.
         timesteps: how many steps to run the simulation for. None (default) runs until there
                     is <0.5 infected people.
+        config: an iterable of numbers which will be preprended for each row. Intended so that
+                metadata (e.g., start location) can be added for use in analysis.
 
     Returns:
-        tuple of three lists, representing that total number of people in each
-        compartment for each step of the simulation.
+        A numpy array of three rows. Each row starts with config and then an integer (0-3)
+        representing what that row is (S, I, R, or N count). Then elements represent the total
+        count for that row at each timestep.
     """
     t = start_time
     end_time = timesteps and t + (timesteps * tick_length)
@@ -282,6 +290,20 @@ def run_simulation(state, hourly_F, tick_length, start_time=0, timesteps=None, c
 
 
 def run_one_config(N, hourly_F, station_index, I_count, t, tick_length=1, config=[]):
+    """Setup and run a simulation for a single configuration.
+
+    Params:
+        N: numpy vector of how many people start at each station
+        hourly_F: a list of F matrices to use, indexed by timestep the matrix refers to
+        station_index: the index of the station where the epidemic should start
+        I_count: how many individuals are infected at the start
+        t: initial value of t, in hours since start of Monday
+        tick_length: how long in hours each simulation tick should last
+        config: as run_simulation()
+
+    Returns:
+        as run_simulation()
+    """
     debug_print(DEBUG, 'Shape of N is: {}', N.shape)
     R = np.zeros_like(N)
     I = np.zeros_like(N)
@@ -291,6 +313,7 @@ def run_one_config(N, hourly_F, station_index, I_count, t, tick_length=1, config
     return run_simulation(state, hourly_F, start_time=t, tick_length=tick_length, config=config)
 
 def add_result(prev_results, new_results):
+    """Add a row of results to output matrix. Adds new columns if necessary so that shapes match."""
     if prev_results is None:
         return new_results
     if prev_results.shape[1] < new_results.shape[1]:
@@ -302,12 +325,14 @@ def add_result(prev_results, new_results):
     return np.concatenate((prev_results, new_results))
     
 def run_all_stations_times():
+    """Run starting at every location for all initial number of infections and start times in declared constants"""
     run_multiple_scenarios(
         'stations_times.npy', all_stations=True, initial_infections=INITIAL_INFECTEDS,
         start_times=START_TIMES
     )
 
 def run_all_tick_lengths():
+    """Run a single scenario with a variety of tick lengths."""
     MAX_LENGTH = 25
     # Randomly chosen scenario
     STATION_INDEX = 355
@@ -319,6 +344,7 @@ def run_all_tick_lengths():
     )
 
 def run_different_periods():
+    """Run a bunch of scenarios with a variety of periodicities for travel data."""
     stations = random.sample(range(395), 40)
     periods = (24, 24*7)
     multipliers = (1, 2, 4, 8)
@@ -329,6 +355,7 @@ def run_different_periods():
 def run_multiple_scenarios(result_filename, all_stations=False, stations=[0],
                            tick_lengths=[1], initial_infections=[1],
                            start_times=[3], travel_periodicities=[None], travel_multipliers=[1]):
+    """Run every combination of conditions specified then write the numpy array to the result file with all results"""
     np.seterr(all='raise', under='warn')
     CONFIG_STR = 'Starting at station {} at time {} (tick length {}) with {} infections. Periodicity is {}.'
     STATION_COUNT, INITIAL_N, hourly_F = setup()
@@ -376,6 +403,13 @@ def run_multiple_scenarios(result_filename, all_stations=False, stations=[0],
     np.save(result_filename, results)
 
 def setup():
+    """Read in data and return a tuple with details
+
+    Returns: 3-tuple of:
+        int: number of stations
+        1D numpy vector: initial population at each station
+        3D numpy vector: list of F matrices
+    """
     stations_pop, INITIAL_N = get_pop_data()
     move_data = get_movement_data()
     hourly_F = create_F_matrices(move_data, stations_pop)
