@@ -7,5 +7,7 @@ results.*
 intel-env
 src/.hypothesis/**
 results_ticks.csv
-*.npy
-*.csv
+**.npy
+tfl_raw.csv
+pop_data.csv
+tfl_bus_locs.csv
