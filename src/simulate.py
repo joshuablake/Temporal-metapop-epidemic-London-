@@ -417,4 +417,23 @@ def setup():
     return STATION_COUNT, INITIAL_N, hourly_F
 
 if __name__ == '__main__':
-    run_different_periods()
+    print('Choose what to vary')
+    print('1: start location and time')
+    print('2: simulation tick length')
+    print('3: periodicity of travel data')
+    mode = 0
+    while mode < 1 or mode > 3:
+        read = input('Choice: ')
+        try:
+            mode = int(read)
+        except ValueErroor:
+            print('Unknown input')
+            continue
+    if mode == 1:
+        run_all_stations_times()
+    elif mode == 2:
+        run_all_tick_lengths()
+    elif mode == 3:
+        run_different_periods()
+    else:
+        print('Unknown selection, exiting')
