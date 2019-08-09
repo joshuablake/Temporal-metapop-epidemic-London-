@@ -1,0 +1,396 @@
+Station,Local authority,connectivity
+Tufnell Park,Islington,1.0155246643675493
+Covent Garden,City of Westminster,1.0319316453545486
+Embankment,City of Westminster,1.0471399275073319
+Acton Town,Ealing,1.0121845330066472
+Beckton,Newham,1.0023105041080562
+Finchley Central,Barnet,1.0180813187378774
+Devons Road,Tower Hamlets,1.0013521759642408
+Bayswater,City of Westminster,1.0083476291028082
+Marylebone,City of Westminster,1.0187004523434584
+Mudchute,Tower Hamlets,1.0041306885813106
+Stockwell,Lambeth,1.0236130661663907
+Clapham South,Wandsworth,1.0349132260002907
+Green Park,City of Westminster,1.0546934762276694
+Royal Oak,City of Westminster,1.0051597981334681
+Southall,Ealing,1.0018318014419032
+Ickenham,Hillingdon,1.002962973877569
+Hackney Wick,Hackney,1.0014927891156553
+Edgware Road M,City of Westminster,1.0181234966051562
+Chalk Farm,Camden,1.0194355431174467
+Royal Victoria,Newham,1.0038898787843427
+London City Airport,Newham,1.0067571618162212
+Oval,Lambeth,1.0182363563591044
+Purley,Croydon,1.0003470206366254
+West Drayton,Hillingdon,1.0009359547990682
+Beckton Park,Newham,1.00032045130758
+Wallington,Sutton,1.0002837943042489
+Baker Street,City of Westminster,1.0722639549014341
+Peckham Rye,Southwark,1.000237165988529
+Dollis Hill,Brent,1.0066917499796206
+Kentish Town West,Camden,1.0012164585933008
+Wood Green,Haringey,1.0286041458479105
+West Brompton,Kensington and Chelsea,1.0086781011214283
+Piccadilly Circus,City of Westminster,1.0673523588618898
+Latimer Road,Kensington and Chelsea,1.0058800999114859
+North Harrow,Harrow,1.0062818243878595
+North Greenwich,Greenwich,1.03131619282579
+Hounslow East,Hounslow,1.0089541177852377
+Queensway,City of Westminster,1.0291440402344678
+Wimbledon,Merton,1.0354840765692492
+Wimbledon Park,Merton,1.0065630887096702
+Sudbury Hill Harrow,Harrow,1.000180666767927
+Honor Oak Park,Lewisham,1.0000504844771139
+South Acton,Ealing,1.0006639878181471
+Prince Regent,Newham,1.0010723098171632
+Colliers Wood,Merton,1.0189939707726108
+Loughton,Epping Forest,1.0191764569128685
+White City,Hammersmith and Fulham,1.0207350323442663
+Eastcote,Hillingdon,1.0080531562040402
+Morden,Merton,1.024208982424505
+Woodside Park,Barnet,1.0064193430772914
+Goodge Street,Camden,1.015770220214395
+Leytonstone High Rd,Waltham Forest,1.0003878212920696
+Hornchurch,Havering,1.0116179158539884
+Snaresbrook,Redbridge,1.016470912475694
+Hatton Cross,Hillingdon,1.0035784703165282
+Totteridge,Barnet,1.0063423963791012
+New Cross,Lewisham,1.0000056112037656
+Norwood Junction SR,Croydon,1.000182370683886
+Harrow On The Hill,Harrow,1.0283478072602175
+Sutton Surrey,Sutton,1.0012698502982131
+Great Portland St,City of Westminster,1.0311588975640131
+Bow Road,Tower Hamlets,1.0202690055651495
+Westminster,City of Westminster,1.0322259594947367
+Kilburn High Road,Camden,1.0009450539865765
+Camden Town,Camden,1.0392984373899918
+Swiss Cottage,Camden,1.0156479301074237
+North Acton,Ealing,1.0142682185071217
+Barbican,City of London,1.1992019113254038
+Temple,City of Westminster,1.0216193640428173
+Bermondsey,Southwark,1.0115960790882963
+Drayton Green,Ealing,1.0001449731875245
+West Kensington,Hammersmith and Fulham,1.0169581575763487
+Tooting Broadway,Wandsworth,1.0330326855488499
+South Ealing,Ealing,1.0093726767822666
+Vauxhall,Lambeth,1.0265724074432054
+Northwood Hills,Hillingdon,1.0051443583779245
+Barons Court,Hammersmith and Fulham,1.0224930744089333
+East Putney,Wandsworth,1.0164648358035429
+Cannon Street,City of London,1.0917593687023097
+Wanstead Park,Newham,1.000502104139683
+Elm Park,Havering,1.0134237680933298
+Boston Manor,Ealing,1.0035496840414155
+Clapham Junction,Wandsworth,1.0173854307405366
+King George V,Newham,1.0014125397386566
+Shepherds Bush Market,Hammersmith and Fulham,1.0075522416910792
+Liverpool Street,City of London,2.1616181506732755
+West Croydon,Croydon,1.0005156765784733
+Notting Hill Gate,Kensington and Chelsea,1.071464326700438
+Balham,Wandsworth,1.0403533885190746
+Harringay,Haringey,1.0000020015612177
+Holborn,Camden,1.094051441952177
+Hammersmith M,Hammersmith and Fulham,1.018113490325317
+Knightsbridge,Kensington and Chelsea,1.0349218310734138
+Streatham,Lambeth,1.0001980600452047
+Bethnal Green,Tower Hamlets,1.0485614248687951
+Chorleywood,Three Rivers,1.0052328279740501
+Island Gardens,Tower Hamlets,1.004432807731689
+Tower Hill,Tower Hamlets,1.0351034174304148
+Farringdon,Islington,1.0618580724333422
+Upper Holloway,Islington,1.0007122011532625
+Thornton Heath,Croydon,1.0005184519364976
+Gunnersbury,Hounslow,1.0090227173373634
+Canary Wharf,Tower Hamlets,1.0801529677999357
+Fairlop,Redbridge,1.0050510219047466
+Pontoon Dock,Newham,1.0016706201828067
+Leyton Midland Road,Waltham Forest,1.000689331920338
+Stanmore,Harrow,1.0083147373858727
+Sudbury & Harrow Rd,Brent,1.0000220077735937
+Victoria,City of Westminster,1.1439339622695037
+Holland Park,Kensington and Chelsea,1.020029859785826
+Streatham Common,Lambeth,1.0007791477401669
+Marble Arch,City of Westminster,1.0494001347660449
+Custom House DLR,Newham,1.0020467645636697
+Kenton,Brent,1.003139049950756
+Dagenham East,Barking and Dagenham,1.0081527805615909
+Battersea Park,Wandsworth,1.000122356130519
+South Kensington,Kensington and Chelsea,1.0756226478710704
+Old Street,Islington,1.0367717522453463
+Manor House,Hackney,1.021201576187512
+Stonebridge Park,Brent,1.0049864403430298
+West Norwood,Lambeth,1.0002860622079752
+Canada Water,Southwark,1.0247002203362832
+Highbury,Islington,1.032181038302207
+Wood Lane,Hammersmith and Fulham,1.004349957576768
+Upton Park,Newham,1.0291530456317048
+Ealing Broadway,Ealing,1.0581587302650615
+Bow Church,Tower Hamlets,1.001818655870015
+Walthamstow Central,Waltham Forest,1.0336599429695539
+Sudbury Hill,Ealing,1.0051089200991892
+Royal Albert,City of Westminster,1.0013628873277962
+Gospel Oak,Camden,1.0021724278243151
+Dalston Kingsland,Hackney,1.005328737701
+Watford Met,Watford,1.0067111167171523
+Woodgrange Park,Newham,1.0003299005806032
+Theydon Bois,Epping Forest,1.0067592139514914
+Paddington,City of Westminster,1.0745033340483046
+Southfields,Wandsworth,1.014056543841288
+Hammersmith D,Hammersmith and Fulham,1.058631198876426
+Charing Cross,City of Westminster,1.0270701980103363
+Euston,Camden,1.0504379606537297
+Pimlico,City of Westminster,1.0208476157813795
+Southwark,Southwark,1.0094520182998663
+Kennington,Southwark,1.0124729096480127
+South Tottenham,Haringey,1.0006176654091568
+Putney Bridge,Hammersmith and Fulham,1.0180945072295573
+Castle Bar Park,Ealing,1.0000799737911896
+Hanger Lane,Ealing,1.010170263743374
+Crossharbour,Tower Hamlets,1.005833022292327
+Woolwich Arsenal DLR,Greenwich,1.0104896175665734
+Osterley,Hounslow,1.0065667513112029
+Leytonstone,Waltham Forest,1.0462779380240994
+Brondesbury Park,Brent,1.000897146298935
+Bromley By Bow,Tower Hamlets,1.007672784268514
+South Quay,Tower Hamlets,1.0067987620822239
+London Bridge,Southwark,1.111657483777462
+Kings Cross St Pancras,Camden,1.1333099636661947
+Maida Vale,City of Westminster,1.0135953298975267
+Newbury Park,Redbridge,1.017794222400792
+Edgware,City of Westminster,1.0128029578983524
+Heathrow Term 4,Hillingdon,1.0020926146076574
+St Johns Wood,City of Westminster,1.018628978399709
+Imperial Wharf,Hammersmith and Fulham,1.0011898312658554
+Belsize Park,Camden,1.02322030661861
+South Greenford,Ealing,1.0000439702624415
+Russell Square,Camden,1.0232053717919325
+East Ham,Newham,1.039545813103035
+Heathrow Term 5,Hillingdon,1.0042765866788783
+Rainham Essex,Havering,1.0040672483754072
+Upney,Barking and Dagenham,1.00972366638652
+Canonbury,Islington,1.0016853270206982
+Grange Hill,Redbridge,1.0030611290552516
+West Finchley,Barnet,1.006757607848991
+Archway,Islington,1.0215456783697645
+Upminster,Havering,1.0366522686909236
+Bounds Green,Haringey,1.0157205554260247
+High Barnet,Barnet,1.0069413383390322
+Roding Valley,Epping Forest,1.0008949223510912
+South Hampstead,Camden,1.0004499431520744
+Sloane Square,Kensington and Chelsea,1.0595110492989164
+Moor Park,Three Rivers,1.0040111794207738
+Alperton,Brent,1.0065686965380736
+Upminster Bridge,Havering,1.004702878821386
+Plaistow,Newham,1.018122958769549
+Clapham North,Lambeth,1.0282393042400455
+London Fields,Hackney,1.0019020313248248
+Ilford,Redbridge,1.0047079813899638
+High Street Kens,Kensington and Chelsea,1.0298470697853492
+Hounslow Central,Hounslow,1.0101606037183353
+Greenwich DLR,Greenwich,1.0016513103318512
+South Ruislip,Hillingdon,1.007105340534586
+Northolt Park,Ealing,1.0001484518738057
+Hanwell,Ealing,1.0004945147335134
+East Finchley,Barnet,1.0234254596840044
+Gallions Reach,Newham,1.0009904758182688
+Turnpike Lane,Haringey,1.0243611952340128
+Watford Junction,Watford,1.007545418207458
+Kilburn,Brent,1.0215272686348995
+Warwick Avenue,City of Westminster,1.0179136341156987
+Ealing Common,Ealing,1.0069273196719926
+Burnt Oak,Barnet,1.0089656191632712
+Forest Hill,Lewisham,1.0001706221415676
+Cyprus,Newham,1.0028453377195414
+West Silvertown,Newham,1.0024326861511437
+Hendon Central,Barnet,1.0169619818477929
+Mill Hill East,Barnet,1.0026689730723266
+Tower Gateway,City of London,1.019448156901161
+Hackney Central,Hackney,1.0040880717481493
+Homerton,Hackney,1.0033949780370475
+Angel,Islington,1.0506171873016086
+Borough,Southwark,1.0121088402454304
+Acton Central,Ealing,1.0014137666507081
+Finchley Rd & Frognal,Camden,1.001238528205223
+Chancery Lane,City of London,1.3450602599134607
+Rectory Road,Hackney,1.0019241870667648
+Rickmansworth,Three Rivers,1.0084192534157386
+Amersham,Chiltern,1.011148186706703
+Arnos Grove,Enfield,1.010137885549974
+Finchley Road,Camden,1.0354829999073227
+Chiswick Park,Ealing,1.0053525868314757
+Northfields,Ealing,1.0090242908049376
+Colindale,Barnet,1.0117392666914942
+Woodford,Redbridge,1.0342211089109163
+West Harrow,Harrow,1.003393126076202
+Debden,Epping Forest,1.010425368243346
+Tooting Bec,Wandsworth,1.0236777595044584
+Tottenham Court Road,City of Westminster,1.125101327835461
+Romford,Havering,1.0053307411890544
+Southgate,Enfield,1.0129393143395304
+Wembley Park,Brent,1.0243208061518725
+Brockley,Lewisham,1.0000352020876235
+Clapham Common,Lambeth,1.042082227552137
+North Wembley,Brent,1.0028907946411005
+Leicester Square,City of Westminster,1.05957450155883
+South Croydon,Croydon,1.0001128856588846
+Cockfosters,Enfield,1.0041023262946551
+Wembley Central,Brent,1.0078109484431201
+Caledonian Road & Barnsbury,Islington,1.0009857750375437
+Pudding Mill Lane,Newham,1.0016024322726838
+Kentish Town,Camden,1.0205122861226763
+Bushey,Watford,1.002776696384264
+City Thameslink,City of London,1.0132435653503251
+Stoke Newington,Hackney,1.0043701025704703
+Waterloo,Lambeth,1.1046593582440085
+Croxley,Three Rivers,1.0041027860820422
+Lewisham DLR,Lewisham,1.004471410067772
+Seven Sisters,Haringey,1.0243755165232038
+Bethnal Green NR,Tower Hamlets,1.0006287357135357
+Chesham,Chiltern,1.0020320165617829
+Hampstead,Camden,1.0163228824406982
+Barking,Barking and Dagenham,1.0479304732296721
+Cutty Sark,Greenwich,1.004840482485375
+Carshalton,Sutton,1.0002265040488973
+Richmond,Richmond,1.0195345036978543
+Blackwall,Tower Hamlets,1.0049856544698628
+Crystal Palace,Bromley,1.0001714649868017
+St Pauls,City of London,1.314613745988874
+Brent Cross,Barnet,1.0071421007225951
+Blackfriars,City of London,1.0032900559515747
+Stepney Green,Tower Hamlets,1.0153679919806586
+Barkingside,Redbridge,1.005209692263246
+Limehouse NR,Tower Hamlets,1.0045109651805126
+Heathrow Terms 123,Hillingdon,1.0103629068442064
+Hainault,Redbridge,1.0150118203498777
+Moorgate,City of London,1.4062548508906267
+West Ealing,Ealing,1.001335392670393
+Brondesbury,Brent,1.0019839368929349
+Norbury,Croydon,1.0008938086836598
+Hyde Park Corner,City of Westminster,1.009822932656968
+Kew Gardens,Richmond,1.0110563506447974
+Poplar,Tower Hamlets,1.002012525967988
+South Kenton,Brent,1.001350796146184
+Hounslow West,Hounslow,1.0063349994439283
+Harrow Wealdstone,Harrow,1.0081344372781578
+Langdon Park,Tower Hamlets,1.001842607406096
+Oakwood,Enfield,1.0065145127849289
+Golders Green,Barnet,1.0252530810706224
+Buckhurst Hill,Epping Forest,1.0154293666408205
+Dagenham Heathway,Barking and Dagenham,1.0153653074035307
+Ruislip Manor,Hillingdon,1.003729815490697
+Hackney Downs,Hackney,1.0037021407853315
+Hampstead Heath,Camden,1.0027895772824715
+Tulse Hill,Lambeth,1.0002557817314617
+Parsons Green,Hammersmith and Fulham,1.0212968281396015
+Hatch End,Harrow,1.001340723606209
+Ravenscourt Park,Hammersmith and Fulham,1.007171748526951
+West Ruislip,Hillingdon,1.0062023408278624
+Warren Street,Camden,1.0218723941068637
+Shadwell DLR,Tower Hamlets,1.0092800542289169
+Chigwell,Epping Forest,1.0019889163655926
+Kilburn Park,Brent,1.0107041537179005
+North Ealing,Ealing,1.0015767100537103
+Bank,City of London,1.5519856108229346
+Harringay Green Lanes,Haringey,1.0004301303115983
+Watford High Street,Watford,1.002869667034993
+All Saints,Tower Hamlets,1.0014327520524322
+Cambridge Heath,Tower Hamlets,1.000492381614859
+Stamford Brook,Hammersmith and Fulham,1.0078700441849648
+West India Quay,Tower Hamlets,1.0021018174088065
+Northwick Park,Brent,1.0122379953292968
+Kensal Rise,Brent,1.0014807106178163
+Camden Road,Camden,1.003464086016943
+Park Royal,Ealing,1.002431962003583
+Perivale,Ealing,1.0078856767335254
+Earls Court,Kensington and Chelsea,1.0515902728657405
+Northwood,Hillingdon,1.0077263658420612
+South Harrow,Harrow,1.004659079480732
+Ruislip Gardens,Hillingdon,1.003443734221341
+Willesden Green,Brent,1.0205206909020414
+Neasden,Brent,1.005641572650838
+Mansion House,City of London,1.152667630323416
+Limehouse DLR,Tower Hamlets,1.0125077637984135
+Walthamstow Queens Road,Waltham Forest,1.0002988987662063
+Redbridge,Redbridge,1.0123631236890671
+St James's Park,City of Westminster,1.0359202298216292
+Uxbridge,Hillingdon,1.015921569358255
+Shepherds Bush,Hammersmith and Fulham,1.0841453460903936
+Dagenham Dock,Barking and Dagenham,1.0005486426418655
+Elephant & Castle,Southwark,1.0353840799775011
+Westbourne Park,City of Westminster,1.0107527883686496
+Northolt,Ealing,1.0143505509304833
+Highgate,Haringey,1.0183055407821042
+Kingsbury,Brent,1.0076024353398725
+Turnham Green,Hounslow,1.0172032023158266
+South Woodford,Redbridge,1.0243934311759813
+Aldgate,City of London,1.1187427342208798
+Ladbroke Grove,Kensington and Chelsea,1.014434256005872
+Oxford Circus,City of Westminster,1.1833563223482138
+Brixton,Lambeth,1.0483158766518572
+South Wimbledon,Merton,1.011882765192439
+Crouch Hill,Islington,1.0003889618081776
+Sudbury Town,Brent,1.0047820093049797
+Chalfont & Latimer,Chiltern,1.0060894651317809
+Pinner,Harrow,1.010285346249855
+Canons Park,Harrow,1.0068998481558968
+Leyton,Waltham Forest,1.0487108195412256
+Stratford,Newham,1.0853117013674844
+Whitechapel,Tower Hamlets,1.031468484757369
+Arsenal,Islington,1.0120451051836896
+Acton Main Line,Ealing,1.0000858419386243
+Mornington Crescent,Camden,1.0086538061997565
+Lambeth North,Lambeth,1.0046937040664061
+Headstone Lane,Harrow,1.000402294087689
+St James Street,Waltham Forest,1.0037051142321793
+Blackhorse Road,Waltham Forest,1.0109623692311018
+Tottenham Hale,Haringey,1.012623816546487
+Deptford Bridge,Greenwich,1.0024919709855036
+Fenchurch St NR,City of London,1.0736365685321891
+Monument,City of London,1.1600545689843644
+Essex Road,Islington,1.0018003347538347
+Gants Hill,Redbridge,1.0250852110328745
+Westferry,Tower Hamlets,1.0069290349538504
+Goldhawk Road,Hammersmith and Fulham,1.0054507485069895
+Greenford,Ealing,1.011489593831874
+East Croydon,Croydon,1.0034013159792547
+Clapton,Hackney,1.0040852597999692
+Drayton Pk,Islington,1.0046907593091954
+Elverson Road,Lewisham,1.0003210968682816
+Queens Park,Brent,1.0171192961602098
+East Acton,Hammersmith and Fulham,1.0112501851807072
+Aldgate East,Tower Hamlets,1.0269944920705463
+Wanstead,Redbridge,1.013805265664237
+Fulham Broadway,Hammersmith and Fulham,1.0314185866427592
+Stamford Hill,Hackney,1.0009039239199868
+Hillingdon,Hillingdon,1.0029052049934692
+Bond Street,City of Westminster,1.1190969292599988
+Sydenham SR,Lewisham,1.000233005155172
+Euston Square,Camden,1.0500432946764744
+West Acton,Ealing,1.0057809016327917
+Lancaster Gate,City of Westminster,1.0270765069205616
+Mile End,Tower Hamlets,1.051298743748998
+Edgware Road B,City of Westminster,1.0070409073402184
+Heron Quays,Tower Hamlets,1.0065313693956828
+Wembley Stadium,Brent,1.0001923145618226
+Willesden Junction,Brent,1.007354686080422
+Canning Town,Newham,1.015835903648785
+West Ham,Newham,1.0078603433857896
+Harlesden,Brent,1.0038444016009398
+East India,Tower Hamlets,1.005291677159402
+Rayners Lane,Harrow,1.0113019776400427
+Carpenders Park,Three Rivers,1.002356473254304
+Bellingham,Lewisham,1.0000055469680273
+Gloucester Road,Kensington and Chelsea,1.0440170993386595
+Holloway Road,Islington,1.0209613136611453
+West Hampstead,Camden,1.026585696515666
+Kensington Olympia,Kensington and Chelsea,1.0046992523550164
+Ruislip,Hillingdon,1.0030068491922224
+Epping,Epping Forest,1.016904434806306
+Queensbury,Brent,1.010251359934493
+Preston Road,Brent,1.0110777723014444
+Caledonian Road,Islington,1.0143075416166685
+Kensal Green,Brent,1.0051283353123173
+Becontree,Barking and Dagenham,1.009003991159315
+Regents Park,City of Westminster,1.0057564972348838
+Finsbury Park,Islington,1.0419073179544132
+Hayes & Harlington,Hillingdon,1.0027851247581876
