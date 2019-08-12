@@ -5,7 +5,6 @@ import pandas as pd
 import numpy as np
 import random
 import traceback
-from scipy.integrate import solve_ivp
 from os import path
 
 DATA_DIR = path.join('..', 'data')
